@@ -9,7 +9,6 @@ HOME_BOX="${HOME_BOX:-/home/box}"
 UPKEEP_DST="${HOME_BOX}/upkeep"
 WORKSPACE="${WORKSPACE:-/workspace}"
 ACCESS="${WORKSPACE}/box-access/bootstrap.sh"
-LEGACY_ACCESS="${WORKSPACE}/box-infra/bootstrap.sh"
 INSTALL_ONLY=0
 
 if [[ "${1:-}" == "--install-only" ]]; then
@@ -33,9 +32,6 @@ echo "home=$HOME_BOX"
 if [[ -x "$ACCESS" ]]; then
   echo "access: $ACCESS --install-only"
   "$ACCESS" --install-only
-elif [[ -x "$LEGACY_ACCESS" ]]; then
-  echo "access-legacy: $LEGACY_ACCESS --install-only"
-  "$LEGACY_ACCESS" --install-only
 else
   echo "WARN: box-access not found; skip gate packages" >&2
 fi
