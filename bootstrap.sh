@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Pacotes do upkeep + scripts em /home/box/upkeep e (por padrão) start.sh.
-# Se box-access estiver ao lado, instala o portão primeiro (--install-only).
+# Upkeep packages + scripts into /home/box/upkeep and (by default) start.sh.
+# If box-access is next to this repo, install the gate first (--install-only).
 
 set -euo pipefail
 

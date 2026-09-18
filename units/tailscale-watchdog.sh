@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Mantém tailscaled vivo reutilizando /var/lib/tailscale (identidade atual).
-# Não cria nó novo. Identidade é box-access.
+# Keep tailscaled alive reusing /var/lib/tailscale (current identity).
+# Does not create a new node. Identity is box-access.
 
 set -u
 
@@ -39,7 +39,7 @@ start_daemon() {
     return 1
   fi
   if ! sudo test -f "$STATE"; then
-    log "ERROR: missing state $STATE (não vou criar identidade nova)"
+    log "ERROR: missing state $STATE (will not create a new identity)"
     return 1
   fi
   sudo mkdir -p "$STATEDIR" /run/tailscale

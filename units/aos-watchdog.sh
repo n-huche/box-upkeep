@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mantém o watch do AOS se o repo existir. Não faz catch-up (isso é `aos up` no start).
+# Keep AOS watch up if the repo exists. Does not catch-up (that is `aos up` on start).
 
 set -u
 

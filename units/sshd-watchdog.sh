@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mantém sshd em <tailscale-ipv4>:2222. Depende do Tailscale já up.
+# Keep sshd on <tailscale-ipv4>:2222. Depends on Tailscale already being up.
 
 set -u
 
@@ -83,7 +83,7 @@ start_sshd() {
   fi
   if ! sudo "$BIN" -t -p "$PORT" -o "ListenAddress=$ip" >/dev/null 2>&1; then
     if ! sudo "$BIN" -t >/dev/null 2>&1; then
-      log "WARN: sshd -t failed; tentando iniciar mesmo assim"
+      log "WARN: sshd -t failed; trying to start anyway"
     fi
   fi
   sudo setsid "$BIN" -D -e -p "$PORT" -o "ListenAddress=$ip" >>"$LOG" 2>&1 &

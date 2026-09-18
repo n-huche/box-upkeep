@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mantém o daemon cron. O crontab de calendário é do AOS (`aos up`).
+# Keep the cron daemon up. The calendar crontab belongs to AOS (`aos up`).
 
 set -u
 

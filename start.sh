@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Cold start: sobe unidades que reboot/Update da box não relançam.
-# Não toca na plataforma Grok Bot/Cursor. Falha do AOS não aborta o portão.
+# Cold start: start units that a box reboot/Update does not relaunch.
+# Do not touch the Grok Bot/Cursor platform. An AOS failure does not abort the gate.
 
 set -euo pipefail
 
