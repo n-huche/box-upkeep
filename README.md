@@ -45,9 +45,8 @@ Se `../box-access/bootstrap.sh` existir, corre `--install-only` primeiro (pacote
 
 `start.sh`:
 
-1. Para leftovers de watchdogs em `/home/box/infra/` e `/home/box/keep/` se ainda existirem (não mata `tailscaled`/`sshd`).
-2. Sobe as unidades em `/home/box/upkeep/`.
-3. Se o AOS existir, chama `aos up` **uma vez** (crontab de calendário + catch-up). Falha do AOS não aborta o upkeep.
+1. Sobe as unidades em `/home/box/upkeep/`.
+2. Se o AOS existir, chama `aos up` **uma vez** (crontab de calendário + catch-up). Falha do AOS não aborta o upkeep.
 
 Da tua máquina (mesmo tailnet):
 

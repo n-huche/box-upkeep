@@ -3,9 +3,9 @@
 
 set -u
 
-KEEP=$(cd "$(dirname "$0")" && pwd)
-LOG="$KEEP/sshd-watchdog.log"
-LOCK_DIR="$KEEP/sshd-watchdog.lock"
+UPKEEP=$(cd "$(dirname "$0")" && pwd)
+LOG="$UPKEEP/sshd-watchdog.log"
+LOCK_DIR="$UPKEEP/sshd-watchdog.lock"
 BIN=/usr/sbin/sshd
 PORT=2222
 MIN_BACKOFF=5

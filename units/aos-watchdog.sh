@@ -3,9 +3,9 @@
 
 set -u
 
-KEEP=$(cd "$(dirname "$0")" && pwd)
-LOG="$KEEP/aos-watchdog.log"
-LOCK_DIR="$KEEP/aos-watchdog.lock"
+UPKEEP=$(cd "$(dirname "$0")" && pwd)
+LOG="$UPKEEP/aos-watchdog.log"
+LOCK_DIR="$UPKEEP/aos-watchdog.lock"
 AOS_ROOT="${AOS_ROOT:-/workspace/aos}"
 BIN="$AOS_ROOT/scripts/aos"
 MIN_BACKOFF=5
