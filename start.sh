@@ -5,13 +5,13 @@
 set -euo pipefail
 
 HOME_BOX="${HOME_BOX:-/home/box}"
-KEEP="${HOME_BOX}/keep"
+UPKEEP="${HOME_BOX}/upkeep"
 AOS_ROOT="${AOS_ROOT:-/workspace/aos}"
 AOS_BIN="${AOS_ROOT}/scripts/aos"
 
-stop_legacy_infra_watchdogs() {
+stop_legacy_watchdogs() {
   local pid
-  for pid in $(pgrep -f '/home/box/infra/(tailscale|sshd)-watchdog\.sh' || true); do
+  for pid in $(pgrep -f '/home/box/(infra|keep)/(tailscale|sshd|cron|aos)-watchdog\.sh' || true); do
     if [[ "$pid" == "$$" ]]; then
       continue
     fi
@@ -19,15 +19,15 @@ stop_legacy_infra_watchdogs() {
   done
 }
 
-stop_legacy_infra_watchdogs
+stop_legacy_watchdogs
 
-nohup "$KEEP/tailscale-watchdog.sh" >/dev/null 2>&1 &
+nohup "$UPKEEP/tailscale-watchdog.sh" >/dev/null 2>&1 &
 sleep 1
-nohup "$KEEP/sshd-watchdog.sh" >/dev/null 2>&1 &
-nohup "$KEEP/cron-watchdog.sh" >/dev/null 2>&1 &
-nohup "$KEEP/aos-watchdog.sh" >/dev/null 2>&1 &
+nohup "$UPKEEP/sshd-watchdog.sh" >/dev/null 2>&1 &
+nohup "$UPKEEP/cron-watchdog.sh" >/dev/null 2>&1 &
+nohup "$UPKEEP/aos-watchdog.sh" >/dev/null 2>&1 &
 echo "started: tailscale + sshd + cron + aos watchdogs"
-pgrep -af '/home/box/keep/.*-watchdog\.sh' || true
+pgrep -af '/home/box/upkeep/.*-watchdog\.sh' || true
 
 if [[ -x "$AOS_BIN" ]]; then
   if ! "$AOS_BIN" up --quiet; then
