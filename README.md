@@ -1,36 +1,36 @@
 # box-upkeep
 
-Babá de processos desta box. Trabalha para o portão (`box-access`) e para o AOS: se existirem nesta máquina, mantém-nos no ar. Não é o portão e não é o AOS.
+Process babysitter for this box. Works for the gate (`box-access`) and for AOS: if they exist on this machine, it keeps them up. It is not the gate and it is not AOS.
 
-Depois de reboot ou Update da box, os daemons não voltam sozinhos. Este repo instala watchdogs e um `start.sh` que os relança.
+After a reboot or an Update of the box, daemons do not come back by themselves. This repo installs watchdogs and a `start.sh` that relaunches them.
 
-## Unidades
+## Units
 
-| Unidade | O que mantém |
+| Unit | What it keeps |
 |---|---|
-| `tailscale` | `tailscaled` com o state já existente (não cria identidade; isso é `box-access`) |
-| `sshd` | `sshd` só no IPv4 Tailscale, porta **2222** |
-| `cron` | daemon `cron` (o crontab de calendário o AOS instala) |
-| `aos` | `aos up --watch-only` se `/workspace/aos` existir |
+| `tailscale` | `tailscaled` with the existing state (does not create identity; that is `box-access`) |
+| `sshd` | `sshd` on Tailscale IPv4 only, port **2222** |
+| `cron` | `cron` daemon (AOS installs the calendar crontab) |
+| `aos` | `aos up --watch-only` if `/workspace/aos` exists |
 
-Uma unidade em falta ou a falhar não impede as outras.
+A missing or failing unit does not block the others.
 
 ## Layout
 
-No git:
+In git:
 
 ```text
-bootstrap.sh          # pacotes + instala em /home/box + start
-start.sh              # cold start (cópia em /home/box/start.sh)
+bootstrap.sh          # packages + install into /home/box + start
+start.sh              # cold start (copied to /home/box/start.sh)
 packages.txt          # cron
-units/*.sh            # um watchdog por processo
+units/*.sh            # one watchdog per process
 ```
 
-Na box, depois do bootstrap:
+On the box, after bootstrap:
 
 ```text
 /home/box/start.sh
-/home/box/upkeep/     # unidades, logs, locks
+/home/box/upkeep/     # units, logs, locks
 ```
 
 ## Cold start
@@ -41,23 +41,23 @@ git pull
 ./bootstrap.sh
 ```
 
-Se `../box-access/bootstrap.sh` existir, corre `--install-only` primeiro (pacotes Tailscale/sshd, sem arrancar processos).
+If `../box-access/bootstrap.sh` exists, it runs `--install-only` first (Tailscale/sshd packages, no processes).
 
 `start.sh`:
 
-1. Sobe as unidades em `/home/box/upkeep/`.
-2. Se o AOS existir, chama `aos up` **uma vez** (crontab de calendário + catch-up). Falha do AOS não aborta o upkeep.
+1. Starts the units in `/home/box/upkeep/`.
+2. If AOS exists, calls `aos up` **once** (calendar crontab + catch-up). An AOS failure does not abort upkeep.
 
-Da tua máquina (mesmo tailnet):
+From your machine (same tailnet):
 
 ```text
 ssh -p 2222 box@<tailscale-ipv4>
 ```
 
-## Regras
+## Rules
 
-- Não toca na plataforma Grok Bot/Cursor (`sand-*`, `.cursor`, `chrome-profile`).
-- Não consome pool de workers.
-- Não cria identidade Tailscale.
-- Não contém lei do AOS (tasks, daily, timezone da agência).
-- sshd não escuta `0.0.0.0`; só o IP Tailscale.
+- Do not touch the Grok Bot/Cursor platform (`sand-*`, `.cursor`, `chrome-profile`).
+- Do not consume the worker pool.
+- Do not create a Tailscale identity.
+- Does not contain AOS law (tasks, daily, agency timezone).
+- sshd does not listen on `0.0.0.0`; only the Tailscale IP.
