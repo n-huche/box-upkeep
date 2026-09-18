@@ -3,9 +3,9 @@
 
 set -u
 
-KEEP=$(cd "$(dirname "$0")" && pwd)
-LOG="$KEEP/cron-watchdog.log"
-LOCK_DIR="$KEEP/cron-watchdog.lock"
+UPKEEP=$(cd "$(dirname "$0")" && pwd)
+LOG="$UPKEEP/cron-watchdog.log"
+LOCK_DIR="$UPKEEP/cron-watchdog.lock"
 BIN=/usr/sbin/cron
 MIN_BACKOFF=5
 MAX_BACKOFF=60

@@ -9,18 +9,6 @@ UPKEEP="${HOME_BOX}/upkeep"
 AOS_ROOT="${AOS_ROOT:-/workspace/aos}"
 AOS_BIN="${AOS_ROOT}/scripts/aos"
 
-stop_legacy_watchdogs() {
-  local pid
-  for pid in $(pgrep -f '/home/box/(infra|keep)/(tailscale|sshd|cron|aos)-watchdog\.sh' || true); do
-    if [[ "$pid" == "$$" ]]; then
-      continue
-    fi
-    kill "$pid" 2>/dev/null || true
-  done
-}
-
-stop_legacy_watchdogs
-
 nohup "$UPKEEP/tailscale-watchdog.sh" >/dev/null 2>&1 &
 sleep 1
 nohup "$UPKEEP/sshd-watchdog.sh" >/dev/null 2>&1 &

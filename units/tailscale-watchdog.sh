@@ -4,9 +4,9 @@
 
 set -u
 
-KEEP=$(cd "$(dirname "$0")" && pwd)
-LOG="$KEEP/tailscale-watchdog.log"
-LOCK_DIR="$KEEP/tailscale-watchdog.lock"
+UPKEEP=$(cd "$(dirname "$0")" && pwd)
+LOG="$UPKEEP/tailscale-watchdog.log"
+LOCK_DIR="$UPKEEP/tailscale-watchdog.lock"
 BIN=/usr/sbin/tailscaled
 STATE=/var/lib/tailscale/tailscaled.state
 STATEDIR=/var/lib/tailscale
