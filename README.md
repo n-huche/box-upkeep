@@ -1,12 +1,12 @@
 # box-upkeep
 
-The host: first boot after a VM reset, and babysitting after reboot or Update. It is not the gate (`box-access`) and it is not AOS.
+The host: first boot after a VM reset, and babysitting after reboot or Update. It is not the gate and it is not AOS.
 
-Identity (Tailscale login, purge, `tailscale up`) stays in `box-access`. This repo clones siblings if they are missing, runs that gate, then keeps processes up.
+Tailscale and SSH are **only** `box-access`. This repo clones that gate if it is missing and runs its bootstrap. It does not configure identity, `sshd`, or `authorized_keys`.
 
 ## First boot (VM reset)
 
-Console of the VM — not SSH. One clone, then this script (it asks for GitHub, Tailscale keys via the gate, and an SSH public key if `authorized_keys` is empty):
+Console of the VM — not SSH:
 
 ```bash
 cd /workspace
@@ -19,24 +19,19 @@ cd box-upkeep
 
 1. Clone `box-access`, `aos`, and private `aos-user` into `aos/user` if missing (`GITHUB_OWNER` from this repo's `origin`, or `n-huche`)
 2. `gh auth login` only if `aos-user` still needs cloning
-3. Run `box-access/bootstrap.sh` (packages + recovery; Tailscale keys prompt there)
-4. Prompt for an SSH public key if `~/.ssh/authorized_keys` is empty (empty line skips)
-5. Install watchdogs + `/home/box/start.sh` and start them
+3. Run `box-access/bootstrap.sh` (Tailscale, SSH keys, `sshd`)
+4. Install cron/AOS watchdogs + `/home/box/start.sh` and start them
 
-Idempotent if the trees already exist: skips clones, the gate prints `gate-ok` when state is present, skips the SSH prompt when a key is already there.
-
-`--install-only`: packages + scripts on disk, no clones, no gate recovery, no start.
+`--install-only`: packages + scripts on disk, no clones, no gate, no start.
 
 ## Units
 
 | Unit | What it keeps |
 |---|---|
-| `tailscale` | `tailscaled` with the existing state (does not create identity; that is `box-access`) |
-| `sshd` | `sshd` on Tailscale IPv4 only, port **2222** |
 | `cron` | `cron` daemon (AOS installs the calendar crontab) |
 | `aos` | `aos up --watch-only` if `/workspace/aos` exists |
 
-A missing or failing unit does not block the others.
+A missing or failing unit does not block the others. Tailscale and `sshd` watchdogs live in `box-access` (`/home/box/access/`).
 
 ## Layout
 
@@ -46,14 +41,16 @@ In git:
 bootstrap.sh          # birth + install + start
 start.sh              # cold start (copied to /home/box/start.sh)
 packages.txt          # cron
-units/*.sh            # one watchdog per process
+units/cron-watchdog.sh
+units/aos-watchdog.sh
 ```
 
 On the box, after bootstrap:
 
 ```text
 /home/box/start.sh
-/home/box/upkeep/     # units, logs, locks
+/home/box/upkeep/     # cron + aos units, logs, locks
+/home/box/access/     # installed by box-access, not this repo
 ```
 
 ## After reboot or Update
@@ -64,12 +61,9 @@ git pull
 ./bootstrap.sh
 ```
 
-or `/home/box/start.sh` if the scripts are already installed.
+or `/home/box/start.sh` if the scripts are already installed. `start.sh` runs `/home/box/access/start.sh` when present (the gate's own process), then cron/AOS.
 
-`start.sh`:
-
-1. Starts the units in `/home/box/upkeep/`.
-2. If AOS exists, calls `aos up` **once** (calendar crontab + catch-up). An AOS failure does not abort upkeep.
+An AOS failure does not abort the host.
 
 From your machine (same tailnet):
 
@@ -83,7 +77,6 @@ Host key is new after a reset; the Mac will warn.
 
 - Do not touch the Grok Bot/Cursor platform (`sand-*`, `.cursor`, `chrome-profile`).
 - Do not consume the worker pool.
-- Do not create a Tailscale identity; call `box-access` for that.
+- Do not create a Tailscale identity, start `sshd`, or write `authorized_keys`. Clone `box-access` and run its bootstrap.
 - Does not contain AOS law (tasks, daily, agency timezone).
-- sshd does not listen on `0.0.0.0`; only the Tailscale IP.
 - Never commit API keys, auth keys, or SSH private keys.

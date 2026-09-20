@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Host birth + keep: clone siblings if missing, run the gate, install
-# watchdogs, start. Does not create a Tailscale identity (box-access does).
-# --install-only: packages + scripts on disk, no clones, no gate recovery, no start.
+# cron/AOS watchdogs, start. Tailscale and SSH are only box-access.
+# --install-only: packages + scripts on disk, no clones, no gate, no start.
 
 set -euo pipefail
 
@@ -74,38 +74,12 @@ ensure_gh_auth() {
   gh auth setup-git >/dev/null 2>&1 || true
 }
 
-ensure_ssh_authorized_key() {
-  local keys="${HOME_BOX}/.ssh/authorized_keys"
-  mkdir -p "${HOME_BOX}/.ssh"
-  chmod 700 "${HOME_BOX}/.ssh"
-  if [[ -s "$keys" ]]; then
-    echo "ssh: authorized_keys present"
-    return 0
-  fi
-  if [[ ! -t 0 ]]; then
-    echo "ssh: skip authorized_keys (no TTY)"
-    return 0
-  fi
-  printf 'SSH public key (empty skip): ' >&2
-  local line=
-  read -r line
-  if [[ -z "$line" ]]; then
-    echo "ssh: skip authorized_keys"
-    return 0
-  fi
-  printf '%s\n' "$line" >>"$keys"
-  chmod 600 "$keys"
-  echo "ssh: wrote $keys"
-}
-
 install_units() {
   mkdir -p "$UPKEEP_DST"
   install -m 755 "$REPO/start.sh" "${HOME_BOX}/start.sh"
-  install -m 755 "$REPO/units/tailscale-watchdog.sh" "${UPKEEP_DST}/tailscale-watchdog.sh"
-  install -m 755 "$REPO/units/sshd-watchdog.sh" "${UPKEEP_DST}/sshd-watchdog.sh"
   install -m 755 "$REPO/units/cron-watchdog.sh" "${UPKEEP_DST}/cron-watchdog.sh"
   install -m 755 "$REPO/units/aos-watchdog.sh" "${UPKEEP_DST}/aos-watchdog.sh"
-  echo "installed: ${HOME_BOX}/start.sh + ${UPKEEP_DST}/*.sh"
+  echo "installed: ${HOME_BOX}/start.sh + ${UPKEEP_DST}/cron + aos"
 }
 
 birth() {
@@ -131,21 +105,12 @@ birth() {
   fi
   echo "access: $ACCESS"
   "$ACCESS"
-
-  ensure_ssh_authorized_key
 }
 
 echo "repo=$REPO"
 echo "home=$HOME_BOX"
 
-if [[ "$INSTALL_ONLY" -eq 1 ]]; then
-  if [[ -x "$ACCESS" ]]; then
-    echo "access: $ACCESS --install-only"
-    "$ACCESS" --install-only
-  else
-    echo "WARN: box-access not found; skip gate packages" >&2
-  fi
-else
+if [[ "$INSTALL_ONLY" -eq 0 ]]; then
   birth
 fi
 
