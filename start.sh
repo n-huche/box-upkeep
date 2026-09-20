@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # Cold start: start units that a box reboot/Update does not relaunch.
-# Tailscale identity and authorized_keys are box-access; this only keeps
-# tailscaled and sshd running. Do not touch the Grok Bot/Cursor platform.
-# An AOS failure does not abort the host.
+# Do not touch the Grok Bot/Cursor platform. An AOS failure does not abort the gate.
 
 set -euo pipefail
 
