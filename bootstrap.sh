@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Host birth + keep: clone siblings if missing, run the gate, install
-# cron/AOS watchdogs, start. Tailscale and SSH are only box-access.
-# --install-only: packages + scripts on disk, no clones, no gate, no start.
+# watchdogs, start. Does not create a Tailscale identity or write SSH keys
+# (box-access does). Persistence of tailscaled/sshd/cron/AOS is this repo.
 
 set -euo pipefail
 
@@ -77,9 +77,11 @@ ensure_gh_auth() {
 install_units() {
   mkdir -p "$UPKEEP_DST"
   install -m 755 "$REPO/start.sh" "${HOME_BOX}/start.sh"
+  install -m 755 "$REPO/units/tailscale-watchdog.sh" "${UPKEEP_DST}/tailscale-watchdog.sh"
+  install -m 755 "$REPO/units/sshd-watchdog.sh" "${UPKEEP_DST}/sshd-watchdog.sh"
   install -m 755 "$REPO/units/cron-watchdog.sh" "${UPKEEP_DST}/cron-watchdog.sh"
   install -m 755 "$REPO/units/aos-watchdog.sh" "${UPKEEP_DST}/aos-watchdog.sh"
-  echo "installed: ${HOME_BOX}/start.sh + ${UPKEEP_DST}/cron + aos"
+  echo "installed: ${HOME_BOX}/start.sh + ${UPKEEP_DST}/*.sh"
 }
 
 birth() {
