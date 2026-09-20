@@ -1,1 +1,2 @@
-cron
+# cron daemon. Scheduling uses host localtime (see units/timezone.sh); CRON_TZ is not honored.
+cronie

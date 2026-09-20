@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Keep the cron daemon up. The calendar crontab belongs to AOS (`aos up`).
+# Keep crond/cron up. The calendar crontab belongs to AOS (`aos up`).
 
 set -u
 
 UPKEEP=$(cd "$(dirname "$0")" && pwd)
 LOG="$UPKEEP/cron-watchdog.log"
 LOCK_DIR="$UPKEEP/cron-watchdog.lock"
-BIN=/usr/sbin/cron
+# cronie provides crond; Debian cron 3.0pl1 is /usr/sbin/cron and ignores CRON_TZ.
+BIN=/usr/sbin/crond
+if [[ ! -x "$BIN" ]]; then
+  BIN=/usr/sbin/cron
+fi
 MIN_BACKOFF=5
 MAX_BACKOFF=60
 

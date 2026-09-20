@@ -10,7 +10,7 @@ After a reboot or an Update of the box, daemons do not come back by themselves. 
 |---|---|
 | `tailscale` | `tailscaled` with the existing state (does not create identity; that is `box-access`) |
 | `sshd` | `sshd` on Tailscale IPv4 only, port **2222** |
-| `cron` | `cron` daemon (AOS installs the calendar crontab) |
+| `cron` | `cronie` (`crond`). AOS still owns the calendar crontab. |
 | `aos` | `aos up --watch-only` if `/workspace/aos` exists |
 
 A missing or failing unit does not block the others.
@@ -22,7 +22,8 @@ In git:
 ```text
 bootstrap.sh          # packages + install into /home/box + start
 start.sh              # cold start (copied to /home/box/start.sh)
-packages.txt          # cron
+packages.txt          # cronie
+units/timezone.sh     # host localtime; not a watchdog
 units/*.sh            # one watchdog per process
 ```
 
@@ -45,8 +46,9 @@ If `../box-access/bootstrap.sh` exists, it runs `--install-only` first (Tailscal
 
 `start.sh`:
 
-1. Starts the units in `/home/box/upkeep/`.
-2. If AOS exists, calls `aos up` **once** (calendar crontab + catch-up). An AOS failure does not abort upkeep.
+1. Sets host localtime to `America/Sao_Paulo` (Debian cron/cronie ignore `CRON_TZ` and schedule in local time).
+2. Starts the units in `/home/box/upkeep/`.
+3. If AOS exists, calls `aos up` **once** (calendar crontab + catch-up). An AOS failure does not abort upkeep.
 
 From your machine (same tailnet):
 
@@ -59,5 +61,5 @@ ssh -p 2222 box@<tailscale-ipv4>
 - Do not touch the Grok Bot/Cursor platform (`sand-*`, `.cursor`, `chrome-profile`).
 - Do not consume the worker pool.
 - Do not create a Tailscale identity.
-- Does not contain AOS law (tasks, daily, agency timezone).
+- Does not contain AOS law (tasks, daily). Sets host localtime to `America/Sao_Paulo` so AOS `0 0` is agency midnight.
 - sshd does not listen on `0.0.0.0`; only the Tailscale IP.

@@ -43,6 +43,7 @@ done < "$REPO/packages.txt"
 
 mkdir -p "$UPKEEP_DST"
 install -m 755 "$REPO/start.sh" "${HOME_BOX}/start.sh"
+install -m 755 "$REPO/units/timezone.sh" "${UPKEEP_DST}/timezone.sh"
 install -m 755 "$REPO/units/tailscale-watchdog.sh" "${UPKEEP_DST}/tailscale-watchdog.sh"
 install -m 755 "$REPO/units/sshd-watchdog.sh" "${UPKEEP_DST}/sshd-watchdog.sh"
 install -m 755 "$REPO/units/cron-watchdog.sh" "${UPKEEP_DST}/cron-watchdog.sh"
