@@ -1,2 +1,2 @@
-# Debian `cron` 3.0pl1 ignores CRON_TZ. cronie honors it, so AOS midnight is agency time.
+# cron daemon. Scheduling uses host localtime (see units/timezone.sh); CRON_TZ is not honored.
 cronie

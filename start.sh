@@ -9,6 +9,10 @@ UPKEEP="${HOME_BOX}/upkeep"
 AOS_ROOT="${AOS_ROOT:-/workspace/aos}"
 AOS_BIN="${AOS_ROOT}/scripts/aos"
 
+if [[ -x "$UPKEEP/timezone.sh" ]]; then
+  "$UPKEEP/timezone.sh" || echo "WARN: timezone.sh failed" >&2
+fi
+
 nohup "$UPKEEP/tailscale-watchdog.sh" >/dev/null 2>&1 &
 sleep 1
 nohup "$UPKEEP/sshd-watchdog.sh" >/dev/null 2>&1 &
