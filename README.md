@@ -10,7 +10,7 @@ After a reboot or an Update of the box, daemons do not come back by themselves. 
 |---|---|
 | `tailscale` | `tailscaled` with the existing state (does not create identity; that is `box-access`) |
 | `sshd` | `sshd` on Tailscale IPv4 only, port **2222** |
-| `cron` | `cron` daemon (AOS installs the calendar crontab) |
+| `cron` | `cronie` (`crond`). Debian `cron` 3.0pl1 ignores `CRON_TZ`; AOS midnight needs a daemon that honors it. AOS still owns the calendar crontab. |
 | `aos` | `aos up --watch-only` if `/workspace/aos` exists |
 
 A missing or failing unit does not block the others.
@@ -22,7 +22,7 @@ In git:
 ```text
 bootstrap.sh          # packages + install into /home/box + start
 start.sh              # cold start (copied to /home/box/start.sh)
-packages.txt          # cron
+packages.txt          # cronie
 units/*.sh            # one watchdog per process
 ```
 
@@ -59,5 +59,5 @@ ssh -p 2222 box@<tailscale-ipv4>
 - Do not touch the Grok Bot/Cursor platform (`sand-*`, `.cursor`, `chrome-profile`).
 - Do not consume the worker pool.
 - Do not create a Tailscale identity.
-- Does not contain AOS law (tasks, daily, agency timezone).
+- Does not contain AOS law (tasks, daily, agency timezone). Host clock stays UTC. `cronie` exists so AOS `CRON_TZ` actually fires.
 - sshd does not listen on `0.0.0.0`; only the Tailscale IP.
