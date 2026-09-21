@@ -13,23 +13,28 @@ WATCHDOG_RE="${UPKEEP}/[^/]*-watchdog\\.sh"
 stop_prior_watchdogs() {
   local pids n
   pids=$(pgrep -f "$WATCHDOG_RE" || true)
-  if [[ -z "$pids" ]]; then
+  if [[ -n "$pids" ]]; then
+    echo "stopping prior upkeep watchdogs: $(echo "$pids" | tr '\n' ' ')"
+    kill $pids 2>/dev/null || true
+    n=0
+    while pids=$(pgrep -f "$WATCHDOG_RE" || true); [[ -n "$pids" ]]; do
+      sleep 1
+      n=$((n + 1))
+      if (( n >= 5 )); then
+        echo "WARN: leftover watchdogs still running; sending SIGKILL" >&2
+        kill -9 $pids 2>/dev/null || true
+        sleep 1
+        break
+      fi
+    done
+  fi
+  # Children (sleep, sudo, daemons) inherit the flock fd. Unlink so the next
+  # start opens a new inode; leftover holders keep the old deleted file.
+  if pgrep -f "$WATCHDOG_RE" >/dev/null 2>&1; then
+    echo "WARN: prior watchdogs still running; leaving lock files in place" >&2
     return 0
   fi
-  echo "stopping prior upkeep watchdogs: $(echo "$pids" | tr '\n' ' ')"
-  # flock on *-watchdog.lock/pid is released when these processes exit.
-  kill $pids 2>/dev/null || true
-  n=0
-  while pids=$(pgrep -f "$WATCHDOG_RE" || true); [[ -n "$pids" ]]; do
-    sleep 1
-    n=$((n + 1))
-    if (( n >= 5 )); then
-      echo "WARN: leftover watchdogs still running; sending SIGKILL" >&2
-      kill -9 $pids 2>/dev/null || true
-      sleep 1
-      break
-    fi
-  done
+  rm -f "$UPKEEP"/*-watchdog.lock/pid
 }
 
 if [[ -x "$UPKEEP/timezone.sh" ]]; then
