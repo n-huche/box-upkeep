@@ -47,7 +47,7 @@ If `../box-access/bootstrap.sh` exists, it runs `--install-only` first (Tailscal
 `start.sh`:
 
 1. Sets host localtime to `America/Sao_Paulo` (Debian cron/cronie ignore `CRON_TZ` and schedule in local time).
-2. Starts the units in `/home/box/upkeep/`.
+2. Stops any already-running upkeep watchdogs, then starts the units in `/home/box/upkeep/` (so binaries and locks re-resolve).
 3. If AOS exists, calls `aos up` **once** (calendar crontab + catch-up). An AOS failure does not abort upkeep.
 
 From your machine (same tailnet):
