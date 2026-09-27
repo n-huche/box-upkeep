@@ -25,10 +25,10 @@ EOF
 chmod +x "$AOS_ROOT/scripts/aos"
 
 export MOCK_LOG=$TMP/aos.log
-# shellcheck source=../lib/common.sh
-source "$ROOT/lib/common.sh"
-# shellcheck source=../steps/04-calendar.sh
-source "$ROOT/steps/04-calendar.sh"
+# shellcheck source=../aos/lib/common.sh
+source "$ROOT/aos/lib/common.sh"
+# shellcheck source=../aos/steps/04-calendar.sh
+source "$ROOT/aos/steps/04-calendar.sh"
 
 MOCK_OUT=crontab-installed MOCK_RC=0 step_calendar >/dev/null
 if ! grep -qx 'up' "$MOCK_LOG"; then
