@@ -2,7 +2,7 @@
 # Start the vendored cron and AOS keep-alive loops (bash, flock, nohup).
 # Not systemd. ./aos-up.sh skips this step on --no-watchdogs.
 # Replaces an already-running copy of these two scripts so a re-run picks
-# up the current files. Does not touch Tailscale or sshd watchdogs.
+# up the current files. Does not start the gate's loops.
 
 box_upkeep_script_pids() {
   local script=$1 pid cmd toks i prev

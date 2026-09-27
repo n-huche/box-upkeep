@@ -2,7 +2,7 @@
 # Orchestrator for keeping AOS alive after reboot or Update.
 # Sources lib/common.sh, then steps/*.sh in order.
 # Flags: --install-only (stop after cronie), --skip-clone, --no-watchdogs.
-# Does not configure Tailscale or sshd. Does not use systemd.
+# AOS only. Does not implement the gate. Does not use systemd.
 
 set -euo pipefail
 
