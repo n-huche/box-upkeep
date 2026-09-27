@@ -6,6 +6,7 @@ cd "$ROOT"
 bash -n up.sh
 bash -n bootstrap.sh
 bash -n aos-up.sh
+bash -n java/install-jdk.sh
 bash -n lib/common.sh
 for step in steps/*.sh; do
   bash -n "$step"

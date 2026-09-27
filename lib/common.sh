@@ -29,7 +29,12 @@ box_upkeep_set_paths() {
   if [[ -z "${AOS_UP:-}" ]]; then
     AOS_UP="$REPO/aos-up.sh"
   fi
+  if [[ -z "${JDK_INSTALL:-}" ]]; then
+    JDK_INSTALL="$REPO/java/install-jdk.sh"
+  fi
+  : "${JDK_PACKAGE:=default-jdk}"
   export AOS_REPO_URL AOS_ROOT BOX_TZ BOX_ACCESS_UP AOS_UP HOME_BOX
+  export JDK_INSTALL JDK_PACKAGE
 }
 
 # config/aos.env sets defaults. An already-exported variable wins.
@@ -67,6 +72,15 @@ log() {
   printf '%s\n' "$*"
 }
 
+# A JDK is present when both the runtime and the compiler run.
+# A missing or broken binary fails the check and does not abort the caller.
+box_upkeep_jdk_present() {
+  command -v java >/dev/null 2>&1 || return 1
+  command -v javac >/dev/null 2>&1 || return 1
+  java -version >/dev/null 2>&1 || return 1
+  javac -version >/dev/null 2>&1 || return 1
+}
+
 box_upkeep_usage_aos() {
   cat <<'EOF'
 Usage: ./aos-up.sh [--install-only] [--skip-clone] [--no-watchdogs] [--help]
@@ -91,24 +105,31 @@ box_upkeep_usage_up() {
 Usage: ./up.sh [--install-only] [--no-watchdogs] [--skip-clone]
                [--access-only] [--aos-only] [--stop-on-error] [--help]
 
-Cold start: run ../box-access/up.sh, then ./aos-up.sh.
-This repo does not implement the gate. It only executes that orchestrator.
+Cold start: run ../box-access/up.sh, then ./aos-up.sh. If java or javac
+does not run, install a JDK afterward (JDK_PACKAGE, default default-jdk).
+This repo does not implement the gate. The gate stays in that orchestrator.
 
   ../box-access/up.sh   the gate (packages, identity, keep-alive live there)
   ./aos-up.sh           timezone, cronie, AOS clone, calendar, cron/AOS loops
+  java/install-jdk.sh   JDK when java or javac does not run (after both sides)
 
-Failure policy: both sides run. A failing side is reported and the other
-still runs. The exit status is the first non-zero status (access, then aos).
+Failure policy: the gate and AOS both run. The JDK step runs after them
+when java or javac is missing, including with --install-only, --access-only,
+and --aos-only. A failing side is reported and the others still run. The
+exit status is the first non-zero status (access, then aos, then jdk).
   --stop-on-error  if box-access/up.sh fails, do not run aos-up.sh
-  --access-only    box-access/up.sh only
-  --aos-only       AOS only
-  --install-only   forwarded to both orchestrators
+                   (the JDK step is not reached either)
+  --access-only    box-access/up.sh only; a missing JDK is still installed
+  --aos-only       AOS only; a missing JDK is still installed
+  --install-only   forwarded to both orchestrators; a missing JDK is still installed
   --no-watchdogs   forwarded to both orchestrators
   --skip-clone     aos-up.sh only (not forwarded to box-access)
   --help           show this help
 
   BOX_ACCESS_UP    gate entry (default: ../box-access/up.sh)
   AOS_UP           AOS entry (default: ./aos-up.sh)
+  JDK_INSTALL      JDK script (default: ./java/install-jdk.sh)
+  JDK_PACKAGE      apt package (default: default-jdk)
 EOF
 }
 
