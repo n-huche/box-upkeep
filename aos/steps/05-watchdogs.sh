@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Start the vendored cron and AOS keep-alive loops (bash, flock, nohup).
-# Not systemd. ./aos-up.sh skips this step on --no-watchdogs.
+# Not systemd. aos/aos-up.sh skips this step on --no-watchdogs.
 # Replaces an already-running copy of these two scripts so a re-run picks
-# up the current files. Does not start the gate's loops.
+# up the current files: aos/units/, a leftover pair started from the old
+# repo-root units/, and a leftover pair under /home/box/upkeep/.
+# Does not start the gate's loops.
 
 box_upkeep_script_pids() {
   local script=$1 pid cmd toks i prev
@@ -33,9 +35,13 @@ box_upkeep_script_pids() {
 
 stop_prior_watchdogs() {
   local legacy="${HOME_BOX:-/home/box}/upkeep"
+  local previous
+  previous=$(cd "$REPO/.." && pwd)/units
   local scripts=(
     "$REPO/units/cron-watchdog.sh"
     "$REPO/units/aos-watchdog.sh"
+    "$previous/cron-watchdog.sh"
+    "$previous/aos-watchdog.sh"
     "$legacy/cron-watchdog.sh"
     "$legacy/aos-watchdog.sh"
   )
@@ -83,6 +89,8 @@ stop_prior_watchdogs() {
   rm -f \
     "$REPO/units/cron-watchdog.lock/pid" \
     "$REPO/units/aos-watchdog.lock/pid" \
+    "$previous/cron-watchdog.lock/pid" \
+    "$previous/aos-watchdog.lock/pid" \
     "$legacy/cron-watchdog.lock/pid" \
     "$legacy/aos-watchdog.lock/pid"
 }

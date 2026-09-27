@@ -1,5 +1,5 @@
-# Shared paths, logging, and flags for ./up.sh and ./aos-up.sh.
-# Sourced by the orchestrators and by a step that is executed directly.
+# Shared paths and flags for ./up.sh and java/install-jdk.sh.
+# AOS paths, config, and flags live in aos/lib/common.sh.
 # Does not implement the gate. That stays in box-access.
 
 if [[ -z "${BOX_UPKEEP_COMMON_LOADED:-}" ]]; then
@@ -19,27 +19,26 @@ box_upkeep_set_paths() {
   ACCESS_ONLY="${ACCESS_ONLY:-0}"
   AOS_ONLY="${AOS_ONLY:-0}"
   STOP_ON_ERROR="${STOP_ON_ERROR:-0}"
-  box_upkeep_load_config
-  : "${AOS_REPO_URL:=https://github.com/n-huche/aos.git}"
-  : "${AOS_ROOT:=/workspace/aos}"
-  : "${BOX_TZ:=America/Sao_Paulo}"
+  box_upkeep_load_access_config
   if [[ -z "${BOX_ACCESS_UP:-}" ]]; then
     BOX_ACCESS_UP="$(cd "$REPO/.." && pwd)/box-access/up.sh"
   fi
   if [[ -z "${AOS_UP:-}" ]]; then
-    AOS_UP="$REPO/aos-up.sh"
+    AOS_UP="$REPO/aos/aos-up.sh"
   fi
   if [[ -z "${JDK_INSTALL:-}" ]]; then
     JDK_INSTALL="$REPO/java/install-jdk.sh"
   fi
   : "${JDK_PACKAGE:=default-jdk}"
-  export AOS_REPO_URL AOS_ROOT BOX_TZ BOX_ACCESS_UP AOS_UP HOME_BOX
+  export BOX_ACCESS_UP AOS_UP HOME_BOX
   export JDK_INSTALL JDK_PACKAGE
 }
 
-# config/aos.env sets defaults. An already-exported variable wins.
-box_upkeep_load_config() {
-  local file="$REPO/config/aos.env"
+# aos/config/aos.env may set BOX_ACCESS_UP when it is not already exported.
+# AOS_REPO_URL, AOS_ROOT, and BOX_TZ are applied by aos/lib/common.sh.
+# Other keys are left for that file so an unknown key is warned about once.
+box_upkeep_load_access_config() {
+  local file="$REPO/aos/config/aos.env"
   [[ -f "$file" ]] || return 0
   local line key val
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -52,16 +51,10 @@ box_upkeep_load_config() {
     if [[ "$val" == \"*\" && "$val" == *\" ]]; then
       val=${val:1:${#val}-2}
     fi
-    case "$key" in
-      AOS_REPO_URL|AOS_ROOT|BOX_TZ|BOX_ACCESS_UP) ;;
-      *)
-        echo "WARN: ignoring unknown key in config/aos.env: $key" >&2
-        continue
-        ;;
-    esac
-    if [[ -z "${!key:-}" ]]; then
-      printf -v "$key" '%s' "$val"
-      export "$key"
+    [[ "$key" == "BOX_ACCESS_UP" ]] || continue
+    if [[ -z "${BOX_ACCESS_UP:-}" ]]; then
+      printf -v BOX_ACCESS_UP '%s' "$val"
+      export BOX_ACCESS_UP
     fi
   done < "$file"
 }
@@ -81,36 +74,19 @@ box_upkeep_jdk_present() {
   javac -version >/dev/null 2>&1 || return 1
 }
 
-box_upkeep_usage_aos() {
-  cat <<'EOF'
-Usage: ./aos-up.sh [--install-only] [--skip-clone] [--no-watchdogs] [--help]
-
-Keep AOS alive after a reboot or Update. Sources lib/common.sh, then runs
-steps/*.sh in order. AOS only.
-
-  --install-only   timezone + cronie, then stop (no clone, crontab, or watchdogs)
-  --skip-clone     do not git clone AOS (later steps need AOS_ROOT already)
-  --no-watchdogs   do not start the cron and aos keep-alive loops
-  --help           show this help
-
-Environment (overrides config/aos.env):
-  AOS_REPO_URL     git URL (default https://github.com/n-huche/aos.git)
-  AOS_ROOT         checkout path (default /workspace/aos)
-  BOX_TZ           host localtime (default America/Sao_Paulo)
-EOF
-}
-
 box_upkeep_usage_up() {
   cat <<'EOF'
 Usage: ./up.sh [--install-only] [--no-watchdogs] [--skip-clone]
                [--access-only] [--aos-only] [--stop-on-error] [--help]
 
-Cold start: run ../box-access/up.sh, then ./aos-up.sh. If java or javac
+Cold start: run ../box-access/up.sh, then ./aos/aos-up.sh. If java or javac
 does not run, install a JDK afterward (JDK_PACKAGE, default default-jdk).
 This repo does not implement the gate. The gate stays in that orchestrator.
+./aos-up.sh at the repo root execs ./aos/aos-up.sh.
 
   ../box-access/up.sh   the gate (packages, identity, keep-alive live there)
-  ./aos-up.sh           timezone, cronie, AOS clone, calendar, cron/AOS loops
+  ./aos/aos-up.sh       timezone, cronie, AOS clone, calendar, cron/AOS loops
+  ./aos-up.sh           execs ./aos/aos-up.sh
   java/install-jdk.sh   JDK when java or javac does not run (after both sides)
 
 Failure policy: the gate and AOS both run. The JDK step runs after them
@@ -127,33 +103,10 @@ exit status is the first non-zero status (access, then aos, then jdk).
   --help           show this help
 
   BOX_ACCESS_UP    gate entry (default: ../box-access/up.sh)
-  AOS_UP           AOS entry (default: ./aos-up.sh)
+  AOS_UP           AOS entry (default: ./aos/aos-up.sh)
   JDK_INSTALL      JDK script (default: ./java/install-jdk.sh)
   JDK_PACKAGE      apt package (default: default-jdk)
 EOF
-}
-
-box_upkeep_parse_aos_args() {
-  INSTALL_ONLY=0
-  NO_WATCHDOGS=0
-  SKIP_CLONE=0
-  local arg
-  for arg in "$@"; do
-    case "$arg" in
-      --install-only) INSTALL_ONLY=1 ;;
-      --no-watchdogs) NO_WATCHDOGS=1 ;;
-      --skip-clone) SKIP_CLONE=1 ;;
-      --help|-h)
-        box_upkeep_usage_aos
-        exit 0
-        ;;
-      *)
-        echo "ERROR: unknown argument: $arg" >&2
-        box_upkeep_usage_aos >&2
-        exit 1
-        ;;
-    esac
-  done
 }
 
 box_upkeep_parse_up_args() {
