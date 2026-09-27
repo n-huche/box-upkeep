@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
-if [[ -d "$ROOT/units" || -d "$ROOT/steps" || -d "$ROOT/config" || -f "$ROOT/packages.txt" ]]; then
+if [[ -d "$ROOT/units" || -d "$ROOT/steps" || -d "$ROOT/config" || -f "$ROOT/packages.txt" || -f "$ROOT/aos-up.sh" ]]; then
   echo "FAIL AOS cold-start files are still at the repo root"
   exit 1
 fi

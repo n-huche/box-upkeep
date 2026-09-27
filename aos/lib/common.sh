@@ -61,10 +61,9 @@ log() {
 box_upkeep_usage_aos() {
   cat <<'EOF'
 Usage: ./aos/aos-up.sh [--install-only] [--skip-clone] [--no-watchdogs] [--help]
-       ./aos-up.sh     same command from the repo root
 
 Keep AOS alive after a reboot or Update. Sources aos/lib/common.sh, then runs
-aos/steps/*.sh in order. AOS only. ./aos-up.sh execs this script.
+aos/steps/*.sh in order. AOS only.
 
   --install-only   timezone + cronie, then stop (no clone, crontab, or watchdogs)
   --skip-clone     do not git clone AOS (later steps need AOS_ROOT already)

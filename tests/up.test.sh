@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Top-level up.sh order and failure policy, using mock entrypoints.
-# Does not run the real gate or aos-up.sh.
+# Does not run the real gate or aos/aos-up.sh.
 # java/javac stubs stay on PATH so a missing host JDK is not installed here.
 set -euo pipefail
 

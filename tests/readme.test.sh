@@ -5,7 +5,6 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 readme=$ROOT/README.md
 entry=$ROOT/up.sh
 aos=$ROOT/aos/aos-up.sh
-aos_wrap=$ROOT/aos-up.sh
 wrapper=$ROOT/bootstrap.sh
 
 need() {
@@ -20,9 +19,8 @@ need "$readme" "cd /workspace/box-upkeep && ./up.sh"
 need "$readme" "VM console"
 need "$readme" "No systemd"
 need "$readme" "kills those loops"
-need "$readme" "./aos-up.sh"
+need "$readme" "./aos/aos-up.sh"
 need "$readme" "aos/aos-up.sh"
-need "$readme" "exec ./aos/aos-up.sh"
 need "$readme" "./bootstrap.sh"
 need "$readme" "lib/common.sh"
 need "$readme" "aos/lib/common.sh"
@@ -71,8 +69,6 @@ need "$ROOT/aos/steps/01-timezone.sh" "America/Sao_Paulo"
 need "$ROOT/aos/config/aos.env" "https://github.com/n-huche/aos.git"
 need "$wrapper" "exec"
 need "$wrapper" "up.sh"
-need "$aos_wrap" "exec"
-need "$aos_wrap" "aos/aos-up.sh"
 need "$ROOT/aos/units/aos-watchdog.sh" "--watch-only"
 need "$ROOT/aos/units/aos-watchdog.sh" "flock -n 9"
 need "$ROOT/aos/units/cron-watchdog.sh" "flock -n 9"
@@ -97,8 +93,8 @@ if grep -q 'apt-get' "$wrapper"; then
   echo "FAIL bootstrap.sh is not a thin wrapper"
   exit 1
 fi
-if grep -q 'apt-get' "$aos_wrap"; then
-  echo "FAIL aos-up.sh is not a thin wrapper"
+if [[ -e "$ROOT/aos-up.sh" ]]; then
+  echo "FAIL root aos-up.sh wrapper is still present; use aos/aos-up.sh"
   exit 1
 fi
 if [[ -e "$ROOT/start.sh" ]]; then

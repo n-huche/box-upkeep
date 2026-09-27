@@ -82,24 +82,22 @@ Usage: ./up.sh [--install-only] [--no-watchdogs] [--skip-clone]
 Cold start: run ../box-access/up.sh, then ./aos/aos-up.sh. If java or javac
 does not run, install a JDK afterward (JDK_PACKAGE, default default-jdk).
 This repo does not implement the gate. The gate stays in that orchestrator.
-./aos-up.sh at the repo root execs ./aos/aos-up.sh.
 
   ../box-access/up.sh   the gate (packages, identity, keep-alive live there)
   ./aos/aos-up.sh       timezone, cronie, AOS clone, calendar, cron/AOS loops
-  ./aos-up.sh           execs ./aos/aos-up.sh
   java/install-jdk.sh   JDK when java or javac does not run (after both sides)
 
 Failure policy: the gate and AOS both run. The JDK step runs after them
 when java or javac is missing, including with --install-only, --access-only,
 and --aos-only. A failing side is reported and the others still run. The
 exit status is the first non-zero status (access, then aos, then jdk).
-  --stop-on-error  if box-access/up.sh fails, do not run aos-up.sh
+  --stop-on-error  if box-access/up.sh fails, do not run aos/aos-up.sh
                    (the JDK step is not reached either)
   --access-only    box-access/up.sh only; a missing JDK is still installed
   --aos-only       AOS only; a missing JDK is still installed
   --install-only   forwarded to both orchestrators; a missing JDK is still installed
   --no-watchdogs   forwarded to both orchestrators
-  --skip-clone     aos-up.sh only (not forwarded to box-access)
+  --skip-clone     aos/aos-up.sh only (not forwarded to box-access)
   --help           show this help
 
   BOX_ACCESS_UP    gate entry (default: ../box-access/up.sh)

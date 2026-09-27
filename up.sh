@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cold start: execute box-access/up.sh, then aos/aos-up.sh.
-# ./aos-up.sh is a thin wrapper around that entry. AOS_UP overrides it.
+# AOS_UP overrides that entry.
 # When java or javac does not run, java/install-jdk.sh runs after both.
 # Gate logic is not in this repo. BOX_ACCESS_UP overrides the sibling path.
 # A failing side is reported. The other still runs unless --stop-on-error,

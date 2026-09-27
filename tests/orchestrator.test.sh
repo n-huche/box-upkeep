@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# aos-up.sh wiring and flag parsing. Does not change the host timezone,
+# aos/aos-up.sh wiring and flag parsing. Does not change the host timezone,
 # install packages, clone AOS, or start watchdogs.
 set -euo pipefail
 
@@ -80,7 +80,7 @@ done
 echo "ok sourcing steps defines functions and does not run them"
 
 if grep -R -n -E 'systemctl|\.service' \
-  "$ROOT/aos-up.sh" "$ROOT/aos" "$ROOT/up.sh" "$ROOT/bootstrap.sh" \
+  "$ROOT/aos" "$ROOT/up.sh" "$ROOT/bootstrap.sh" \
   "$ROOT/lib" "$ROOT/java" >/dev/null; then
   echo "FAIL systemd unit reference in scripts"
   exit 1
@@ -89,13 +89,13 @@ if [[ -e "$ROOT/aos/units/tailscale-watchdog.sh" || -e "$ROOT/aos/units/sshd-wat
   echo "FAIL tailscale or sshd watchdog still vendored here"
   exit 1
 fi
-if ! grep -q 'exec ' "$ROOT/aos-up.sh" || ! grep -q 'aos/aos-up.sh' "$ROOT/aos-up.sh"; then
-  echo "FAIL root aos-up.sh does not exec aos/aos-up.sh"
+if [[ -e "$ROOT/aos-up.sh" ]]; then
+  echo "FAIL root aos-up.sh wrapper is still present; use aos/aos-up.sh"
   exit 1
 fi
-help=$("$ROOT/aos-up.sh" --help)
+help=$("$ROOT/aos/aos-up.sh" --help)
 if ! printf '%s\n' "$help" | grep -q -- '--skip-clone'; then
-  echo "FAIL ./aos-up.sh --help did not reach the AOS entry"
+  echo "FAIL ./aos/aos-up.sh --help missing --skip-clone"
   exit 1
 fi
 default_aos=$(
