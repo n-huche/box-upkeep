@@ -30,10 +30,10 @@ export AOS_ROOT="$TMP/workspace/aos"
 export AOS_REPO_URL="https://github.com/n-huche/aos.git"
 unset SKIP_CLONE
 
-# shellcheck source=../lib/common.sh
-source "$ROOT/lib/common.sh"
-# shellcheck source=../steps/03-clone-aos.sh
-source "$ROOT/steps/03-clone-aos.sh"
+# shellcheck source=../aos/lib/common.sh
+source "$ROOT/aos/lib/common.sh"
+# shellcheck source=../aos/steps/03-clone-aos.sh
+source "$ROOT/aos/steps/03-clone-aos.sh"
 
 if [[ "$(command -v git)" != "$TMP/bin/git" ]]; then
   echo "FAIL mock git is not first on PATH"
@@ -93,7 +93,7 @@ echo "ok --skip-clone does not clone"
 # Fresh shell so config defaults apply and the mock stays on PATH.
 default_url=$(
   PATH="$TMP/bin:$PATH" AOS_ROOT="$TMP/workspace/aos-default" \
-    env -u AOS_REPO_URL bash -c 'source "'"$ROOT"'/lib/common.sh"; printf "%s\n" "$AOS_REPO_URL"'
+    env -u AOS_REPO_URL bash -c 'source "'"$ROOT"'/aos/lib/common.sh"; printf "%s\n" "$AOS_REPO_URL"'
 )
 if [[ "$default_url" != "https://github.com/n-huche/aos.git" ]]; then
   echo "FAIL default AOS_REPO_URL is $default_url"
@@ -101,7 +101,7 @@ if [[ "$default_url" != "https://github.com/n-huche/aos.git" ]]; then
 fi
 override_url=$(
   PATH="$TMP/bin:$PATH" AOS_REPO_URL="https://example.invalid/aos.git" \
-    bash -c 'source "'"$ROOT"'/lib/common.sh"; printf "%s\n" "$AOS_REPO_URL"'
+    bash -c 'source "'"$ROOT"'/aos/lib/common.sh"; printf "%s\n" "$AOS_REPO_URL"'
 )
 if [[ "$override_url" != "https://example.invalid/aos.git" ]]; then
   echo "FAIL env AOS_REPO_URL did not override config"

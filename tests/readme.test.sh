@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 readme=$ROOT/README.md
 entry=$ROOT/up.sh
-aos=$ROOT/aos-up.sh
+aos=$ROOT/aos/aos-up.sh
+aos_wrap=$ROOT/aos-up.sh
 wrapper=$ROOT/bootstrap.sh
 
 need() {
@@ -20,16 +21,20 @@ need "$readme" "VM console"
 need "$readme" "No systemd"
 need "$readme" "kills those loops"
 need "$readme" "./aos-up.sh"
+need "$readme" "aos/aos-up.sh"
+need "$readme" "exec ./aos/aos-up.sh"
 need "$readme" "./bootstrap.sh"
 need "$readme" "lib/common.sh"
-need "$readme" "config/aos.env"
-need "$readme" "steps/01-timezone.sh"
-need "$readme" "steps/02-cronie.sh"
-need "$readme" "steps/03-clone-aos.sh"
-need "$readme" "steps/04-calendar.sh"
-need "$readme" "steps/05-watchdogs.sh"
-need "$readme" "units/cron-watchdog.sh"
-need "$readme" "units/aos-watchdog.sh"
+need "$readme" "aos/lib/common.sh"
+need "$readme" "aos/config/aos.env"
+need "$readme" "aos/steps/01-timezone.sh"
+need "$readme" "aos/steps/02-cronie.sh"
+need "$readme" "aos/steps/03-clone-aos.sh"
+need "$readme" "aos/steps/04-calendar.sh"
+need "$readme" "aos/steps/05-watchdogs.sh"
+need "$readme" "aos/units/cron-watchdog.sh"
+need "$readme" "aos/units/aos-watchdog.sh"
+need "$readme" "aos/packages.txt"
 need "$readme" "America/Sao_Paulo"
 need "$readme" "cronie"
 need "$readme" "https://github.com/n-huche/aos.git"
@@ -54,21 +59,24 @@ need "$aos" "steps/03-clone-aos.sh"
 need "$aos" "steps/05-watchdogs.sh"
 need "$aos" "--install-only"
 need "$aos" "--no-watchdogs"
-need "$ROOT/lib/common.sh" "AOS_REPO_URL"
-need "$ROOT/lib/common.sh" "https://github.com/n-huche/aos.git"
-need "$ROOT/steps/03-clone-aos.sh" "git clone"
-need "$ROOT/steps/03-clone-aos.sh" "--skip-clone"
-need "$ROOT/steps/04-calendar.sh" "up"
-need "$ROOT/steps/05-watchdogs.sh" "cron-watchdog.sh"
-need "$ROOT/steps/05-watchdogs.sh" "aos-watchdog.sh"
-need "$ROOT/steps/01-timezone.sh" "America/Sao_Paulo"
-need "$ROOT/config/aos.env" "https://github.com/n-huche/aos.git"
+need "$ROOT/aos/lib/common.sh" "AOS_REPO_URL"
+need "$ROOT/aos/lib/common.sh" "https://github.com/n-huche/aos.git"
+need "$ROOT/lib/common.sh" "aos/aos-up.sh"
+need "$ROOT/aos/steps/03-clone-aos.sh" "git clone"
+need "$ROOT/aos/steps/03-clone-aos.sh" "--skip-clone"
+need "$ROOT/aos/steps/04-calendar.sh" "up"
+need "$ROOT/aos/steps/05-watchdogs.sh" "cron-watchdog.sh"
+need "$ROOT/aos/steps/05-watchdogs.sh" "aos-watchdog.sh"
+need "$ROOT/aos/steps/01-timezone.sh" "America/Sao_Paulo"
+need "$ROOT/aos/config/aos.env" "https://github.com/n-huche/aos.git"
 need "$wrapper" "exec"
 need "$wrapper" "up.sh"
-need "$ROOT/units/aos-watchdog.sh" "--watch-only"
-need "$ROOT/units/aos-watchdog.sh" "flock -n 9"
-need "$ROOT/units/cron-watchdog.sh" "flock -n 9"
-need "$ROOT/packages.txt" "cronie"
+need "$aos_wrap" "exec"
+need "$aos_wrap" "aos/aos-up.sh"
+need "$ROOT/aos/units/aos-watchdog.sh" "--watch-only"
+need "$ROOT/aos/units/aos-watchdog.sh" "flock -n 9"
+need "$ROOT/aos/units/cron-watchdog.sh" "flock -n 9"
+need "$ROOT/aos/packages.txt" "cronie"
 need "$readme" "java/install-jdk.sh"
 need "$readme" "default-jdk"
 need "$readme" "JDK_PACKAGE"
@@ -89,12 +97,20 @@ if grep -q 'apt-get' "$wrapper"; then
   echo "FAIL bootstrap.sh is not a thin wrapper"
   exit 1
 fi
+if grep -q 'apt-get' "$aos_wrap"; then
+  echo "FAIL aos-up.sh is not a thin wrapper"
+  exit 1
+fi
 if [[ -e "$ROOT/start.sh" ]]; then
   echo "FAIL start.sh is still the cold start; up.sh replaced it"
   exit 1
 fi
 if [[ -e "$ROOT/units/tailscale-watchdog.sh" || -e "$ROOT/units/sshd-watchdog.sh" || -e "$ROOT/units/timezone.sh" ]]; then
   echo "FAIL legacy unit still present"
+  exit 1
+fi
+if [[ -e "$ROOT/aos/units/tailscale-watchdog.sh" || -e "$ROOT/aos/units/sshd-watchdog.sh" || -e "$ROOT/aos/units/timezone.sh" ]]; then
+  echo "FAIL legacy unit still present under aos/units"
   exit 1
 fi
 if find "$ROOT" -name '*.service' -o -name '*.timer' | grep -q .; then

@@ -15,8 +15,8 @@ if ! grep -q 'set -euo pipefail' "$ROOT/java/install-jdk.sh"; then
   echo "FAIL java/install-jdk.sh missing set -euo pipefail"
   exit 1
 fi
-if grep -q 'jdk' "$ROOT/packages.txt"; then
-  echo "FAIL JDK package belongs in java/install-jdk.sh, not packages.txt"
+if grep -q 'jdk' "$ROOT/aos/packages.txt"; then
+  echo "FAIL JDK package belongs in java/install-jdk.sh, not aos/packages.txt"
   exit 1
 fi
 echo "ok jdk script is executable and packages.txt stays cronie"

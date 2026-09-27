@@ -4,20 +4,25 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
-units=$(find "$ROOT/units" -type f -printf '%f\n' | sort)
+if [[ -d "$ROOT/units" || -d "$ROOT/steps" || -d "$ROOT/config" || -f "$ROOT/packages.txt" ]]; then
+  echo "FAIL AOS cold-start files are still at the repo root"
+  exit 1
+fi
+
+units=$(find "$ROOT/aos/units" -type f -printf '%f\n' | sort)
 expected=$(printf '%s\n' aos-watchdog.sh cron-watchdog.sh)
 if [[ "$units" != "$expected" ]]; then
-  echo "FAIL units/ is not cron + aos only"
+  echo "FAIL aos/units/ is not cron + aos only"
   printf '%s\n' "$units"
   exit 1
 fi
-echo "ok units are cron and aos only"
+echo "ok aos/units are cron and aos only"
 
-if grep -E -i -q 'tailscale|openssh|sshd' "$ROOT/packages.txt"; then
-  echo "FAIL packages.txt contains a gate package"
+if grep -E -i -q 'tailscale|openssh|sshd' "$ROOT/aos/packages.txt"; then
+  echo "FAIL aos/packages.txt contains a gate package"
   exit 1
 fi
-echo "ok packages.txt has no gate packages"
+echo "ok aos/packages.txt has no gate packages"
 
 hits=$(grep -R -n -F \
   -e ListenAddress \

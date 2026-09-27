@@ -4,10 +4,10 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-# shellcheck source=../lib/common.sh
-source "$ROOT/lib/common.sh"
+# shellcheck source=../aos/lib/common.sh
+source "$ROOT/aos/lib/common.sh"
 
-order=$(grep -oE 'steps/[0-9]{2}-[a-z0-9-]+\.sh' "$ROOT/aos-up.sh")
+order=$(grep -oE 'steps/[0-9]{2}-[a-z0-9-]+\.sh' "$ROOT/aos/aos-up.sh")
 expected=$(printf '%s\n' \
   steps/01-timezone.sh \
   steps/02-cronie.sh \
@@ -21,7 +21,7 @@ if [[ "$order" != "$expected" ]]; then
 fi
 echo "ok aos-up.sh runs steps in order"
 
-line() { grep -n "$1" "$ROOT/aos-up.sh" | head -n1 | cut -d: -f1; }
+line() { grep -n "$1" "$ROOT/aos/aos-up.sh" | head -n1 | cut -d: -f1; }
 p01=$(line 'steps/01-timezone.sh')
 p02=$(line 'steps/02-cronie.sh')
 inst=$(line 'INSTALL_ONLY')
@@ -61,16 +61,16 @@ fi
 echo "ok aos flag parser"
 
 # Sourcing steps must not start daemons or clone.
-# shellcheck source=../steps/01-timezone.sh
-source "$ROOT/steps/01-timezone.sh"
-# shellcheck source=../steps/02-cronie.sh
-source "$ROOT/steps/02-cronie.sh"
-# shellcheck source=../steps/03-clone-aos.sh
-source "$ROOT/steps/03-clone-aos.sh"
-# shellcheck source=../steps/04-calendar.sh
-source "$ROOT/steps/04-calendar.sh"
-# shellcheck source=../steps/05-watchdogs.sh
-source "$ROOT/steps/05-watchdogs.sh"
+# shellcheck source=../aos/steps/01-timezone.sh
+source "$ROOT/aos/steps/01-timezone.sh"
+# shellcheck source=../aos/steps/02-cronie.sh
+source "$ROOT/aos/steps/02-cronie.sh"
+# shellcheck source=../aos/steps/03-clone-aos.sh
+source "$ROOT/aos/steps/03-clone-aos.sh"
+# shellcheck source=../aos/steps/04-calendar.sh
+source "$ROOT/aos/steps/04-calendar.sh"
+# shellcheck source=../aos/steps/05-watchdogs.sh
+source "$ROOT/aos/steps/05-watchdogs.sh"
 for func in step_timezone step_cronie step_clone_aos step_calendar step_watchdogs; do
   if ! declare -F "$func" >/dev/null; then
     echo "FAIL missing function $func"
@@ -80,13 +80,29 @@ done
 echo "ok sourcing steps defines functions and does not run them"
 
 if grep -R -n -E 'systemctl|\.service' \
-  "$ROOT/aos-up.sh" "$ROOT/up.sh" "$ROOT/bootstrap.sh" \
-  "$ROOT/lib" "$ROOT/steps" "$ROOT/units" >/dev/null; then
+  "$ROOT/aos-up.sh" "$ROOT/aos" "$ROOT/up.sh" "$ROOT/bootstrap.sh" \
+  "$ROOT/lib" "$ROOT/java" >/dev/null; then
   echo "FAIL systemd unit reference in scripts"
   exit 1
 fi
-if [[ -e "$ROOT/units/tailscale-watchdog.sh" || -e "$ROOT/units/sshd-watchdog.sh" ]]; then
+if [[ -e "$ROOT/aos/units/tailscale-watchdog.sh" || -e "$ROOT/aos/units/sshd-watchdog.sh" ]]; then
   echo "FAIL tailscale or sshd watchdog still vendored here"
+  exit 1
+fi
+if ! grep -q 'exec ' "$ROOT/aos-up.sh" || ! grep -q 'aos/aos-up.sh' "$ROOT/aos-up.sh"; then
+  echo "FAIL root aos-up.sh does not exec aos/aos-up.sh"
+  exit 1
+fi
+help=$("$ROOT/aos-up.sh" --help)
+if ! printf '%s\n' "$help" | grep -q -- '--skip-clone'; then
+  echo "FAIL ./aos-up.sh --help did not reach the AOS entry"
+  exit 1
+fi
+default_aos=$(
+  env -u AOS_UP bash -c 'source "'"$ROOT"'/lib/common.sh"; printf "%s\n" "$AOS_UP"'
+)
+if [[ "$default_aos" != "$ROOT/aos/aos-up.sh" ]]; then
+  echo "FAIL default AOS_UP is $default_aos"
   exit 1
 fi
 echo "ok no systemd units and no tailscale/sshd watchdogs"
