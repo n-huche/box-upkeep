@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Keep AOS watch up if the repo exists. Does not catch-up (that is `aos up` on start).
+# Keep `aos up --watch-only` running. Calendar catch-up is steps/04-calendar.sh.
+# Started by steps/05-watchdogs.sh (bash, flock, nohup). Not a systemd unit.
 
 set -u
 

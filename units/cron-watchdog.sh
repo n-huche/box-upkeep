@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Keep crond/cron up. The calendar crontab belongs to AOS (`aos up`).
+# Started by steps/05-watchdogs.sh (bash, flock, nohup). Not a systemd unit.
 
 set -u
 
