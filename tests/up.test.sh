@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Top-level up.sh order and failure policy, using mock entrypoints.
 # Does not run the real gate or aos-up.sh.
+# java/javac stubs stay on PATH so a missing host JDK is not installed here.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -20,9 +21,19 @@ printf 'invoked %s\n' "$*" >> "$AOS_LOG"
 exit "${AOS_RC:-0}"
 EOF
 chmod +x "$TMP/access-up.sh" "$TMP/aos-up.sh"
+mkdir -p "$TMP/bin"
+cat > "$TMP/bin/java" << 'EOF'
+#!/bin/bash
+exit 0
+EOF
+cat > "$TMP/bin/javac" << 'EOF'
+#!/bin/bash
+exit 0
+EOF
+chmod +x "$TMP/bin/java" "$TMP/bin/javac"
 
 run_up() {
-  ACCESS_RC=${ACCESS_RC:-0} AOS_RC=${AOS_RC:-0} \
+  PATH="$TMP/bin:$PATH" ACCESS_RC=${ACCESS_RC:-0} AOS_RC=${AOS_RC:-0} \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     "$ROOT/up.sh" "$@"
@@ -37,6 +48,11 @@ ACCESS_RC=0 AOS_RC=0
 out=$(run_up)
 if ! printf '%s\n' "$out" | grep -q 'up: ok'; then
   echo "FAIL success path did not print up: ok"
+  printf '%s\n' "$out"
+  exit 1
+fi
+if ! printf '%s\n' "$out" | grep -qx 'jdk: present'; then
+  echo "FAIL success path did not skip a present JDK"
   printf '%s\n' "$out"
   exit 1
 fi
@@ -82,7 +98,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL aos side did not run after a gate failure"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=0'; then
   echo "FAIL failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -100,7 +116,7 @@ if [[ "$rc" -ne 5 ]]; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=5'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=5 jdk=0'; then
   echo "FAIL aos failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -122,7 +138,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL both-failure path skipped aos"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=5'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=5 jdk=0'; then
   echo "FAIL both-failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -182,7 +198,7 @@ echo "ok --access-only and --aos-only are exclusive"
 reset_logs
 ACCESS_RC=0 AOS_RC=0
 set +e
-out=$(BOX_ACCESS_UP="$TMP/missing-up.sh" AOS_UP="$TMP/aos-up.sh" \
+out=$(PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/missing-up.sh" AOS_UP="$TMP/aos-up.sh" \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" 2>&1)
 rc=$?
@@ -196,7 +212,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL missing gate skipped aos"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=127 aos=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=127 aos=0 jdk=0'; then
   echo "FAIL missing gate was not reported"
   printf '%s\n' "$out"
   exit 1
@@ -204,14 +220,14 @@ fi
 echo "ok a missing gate is reported and aos still runs"
 
 reset_logs
-BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help >/dev/null
 if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
   echo "FAIL --help invoked a side"
   exit 1
 fi
-help=$(BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+help=$(PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help)
 if ! printf '%s\n' "$help" | grep -q -- '--stop-on-error'; then
