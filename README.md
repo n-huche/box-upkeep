@@ -6,7 +6,15 @@ The gate is not implemented here. Nothing from [`box-access`](https://github.com
 
 There is no conventional systemd here. Cron and AOS stay up through vendored bash loops (`flock` + `nohup`) in this repo.
 
-After an Update, apt packages are often gone and daemons do not come back. `/workspace` persists. Run `./up.sh` again.
+## After reboot or Update
+
+No systemd: a reboot or an Update kills those loops. They do not come back by themselves. Apt packages are often gone as well. `/workspace` persists. From the VM console:
+
+```bash
+cd /workspace/box-upkeep && ./up.sh
+```
+
+That one command runs the gate (`../box-access/up.sh`) and then AOS (`./aos-up.sh`).
 
 ## Layout
 
@@ -32,13 +40,15 @@ units/aos-watchdog.sh           # aos up --watch-only
 
 ## Use
 
+Cold start is the console command above. `./bootstrap.sh` does the same thing. Prefer `./up.sh`.
+
+Pull first when this checkout should match the remote:
+
 ```bash
 cd /workspace/box-upkeep
 git pull
 ./up.sh
 ```
-
-`./bootstrap.sh` does the same thing. Prefer `./up.sh`.
 
 Gate only, or AOS only:
 
@@ -112,7 +122,7 @@ The gate entry defaults to `../box-access/up.sh`. Override with `BOX_ACCESS_UP`.
 | `units/cron-watchdog.sh` | Loop. If `crond` or `cron` is down, start it. `flock` so only one loop runs. Exponential backoff (5s–60s) when the binary is missing. |
 | `units/aos-watchdog.sh` | Loop. When `$AOS_ROOT/scripts/aos` exists, run `aos up --watch-only`. Does not install the crontab (that is step 04). Waits if the binary is not there yet. Same `flock` and backoff. |
 
-Re-run `./up.sh` after reboot or Update. The loops then keep cron and AOS watch up if either process crashes. They are not systemd units. A reboot stops the loops until `up.sh` starts them again. How you reach the box is `box-access`; this repo does not describe that path.
+The loops keep cron and AOS watch up if either process crashes. They are not systemd units, so a reboot or an Update stops them until the console command above starts them again. How you reach the box is `box-access`; this repo does not describe that path.
 
 ## Older `/home/box/upkeep` copies
 

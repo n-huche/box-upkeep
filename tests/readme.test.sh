@@ -15,8 +15,10 @@ need() {
   fi
 }
 
-need "$readme" "cd /workspace/box-upkeep"
-need "$readme" "./up.sh"
+need "$readme" "cd /workspace/box-upkeep && ./up.sh"
+need "$readme" "VM console"
+need "$readme" "No systemd"
+need "$readme" "kills those loops"
 need "$readme" "./aos-up.sh"
 need "$readme" "./bootstrap.sh"
 need "$readme" "lib/common.sh"
