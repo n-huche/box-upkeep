@@ -1,2 +1,3 @@
-# cron daemon. Scheduling uses host localtime (see units/timezone.sh); CRON_TZ is not honored.
+# cronie provides crond and crontab. Scheduling uses host localtime
+# (steps/01-timezone.sh). Debian cronie does not honor CRON_TZ.
 cronie
