@@ -2,7 +2,7 @@
 
 Keeps AOS alive after a reboot or an Update on the Grok Bot / Cursor VM. It is not AOS law.
 
-The gate is not implemented here. Nothing from [`box-access`](https://github.com/n-huche/box-access) is vendored: no gate packages, no gate watchdogs, no gate apt workarounds, no gate secrets, no copies of its units or scripts. `./up.sh` executes that repo's orchestrator (`../box-access/up.sh`, or `BOX_ACCESS_UP`), then the AOS entry (`./aos/aos-up.sh`, or `AOS_UP`). `./aos-up.sh` at the repo root execs `./aos/aos-up.sh`. When `java` or `javac` does not run, `./up.sh` also runs `java/install-jdk.sh`. `./bootstrap.sh` execs `./up.sh` with the same arguments.
+The gate is not implemented here. Nothing from [`box-access`](https://github.com/n-huche/box-access) is vendored: no gate packages, no gate watchdogs, no gate apt workarounds, no gate secrets, no copies of its units or scripts. `./up.sh` executes that repo's orchestrator (`../box-access/up.sh`, or `BOX_ACCESS_UP`), then the AOS entry (`./aos/aos-up.sh`, or `AOS_UP`). When `java` or `javac` does not run, `./up.sh` also runs `java/install-jdk.sh`. `./bootstrap.sh` execs `./up.sh` with the same arguments.
 
 There is no conventional systemd here. Cron and AOS stay up through vendored bash loops (`flock` + `nohup`) in this repo.
 
@@ -18,14 +18,13 @@ That one command runs the gate (`../box-access/up.sh`) and then AOS (`./aos/aos-
 
 ## Layout
 
-`./up.sh` is the host orchestrator: gate, then AOS, then a JDK when `java` or `javac` does not run. The canonical AOS orchestrator is `aos/aos-up.sh`. It sources `aos/lib/common.sh`, then each `aos/steps/*.sh` in order. Steps share one shell. Each step is idempotent. `./aos-up.sh` only execs that entry.
+`./up.sh` is the host orchestrator: gate, then AOS, then a JDK when `java` or `javac` does not run. The canonical AOS orchestrator is `aos/aos-up.sh`. It sources `aos/lib/common.sh`, then each `aos/steps/*.sh` in order. Steps share one shell. Each step is idempotent.
 
 `lib/common.sh` is shared by `./up.sh` and `java/install-jdk.sh` (paths, flags, the JDK check). AOS config and AOS flags live under `aos/`.
 
 ```text
 up.sh                           # gate, then aos/aos-up.sh, then JDK if missing
 bootstrap.sh                    # exec ./up.sh "$@"; same arguments
-aos-up.sh                       # exec ./aos/aos-up.sh; same arguments
 lib/common.sh                   # shared paths and flags for up.sh and the JDK
 java/install-jdk.sh             # default-jdk when java or javac is missing
 aos/aos-up.sh                   # canonical AOS orchestrator
@@ -70,7 +69,7 @@ Packages only (the flag is forwarded to both orchestrators; each repo defines wh
 ./up.sh --install-only
 ```
 
-`./aos/aos-up.sh --install-only` (or `./aos-up.sh --install-only`) stops after timezone and cronie. It does not install a JDK. The JDK is not listed in `aos/packages.txt`.
+`./aos/aos-up.sh --install-only` stops after timezone and cronie. It does not install a JDK. The JDK is not listed in `aos/packages.txt`.
 
 Full AOS path without the keep-alive loops (`crond` is still started once by the cronie step; `aos up` still installs the crontab):
 
@@ -78,17 +77,15 @@ Full AOS path without the keep-alive loops (`crond` is still started once by the
 ./aos/aos-up.sh --no-watchdogs
 ```
 
-`./aos-up.sh --no-watchdogs` is the same command.
-
 Skip the clone when `/workspace/aos` is already the checkout you want (or set `AOS_ROOT`):
 
 ```bash
 ./aos/aos-up.sh --skip-clone
 ```
 
-Flags can be combined. `./up.sh` forwards `--install-only` and `--no-watchdogs` to both orchestrators. `--skip-clone` is passed only to the AOS entry. The JDK script takes no flags; `./up.sh` runs it when `java` or `javac` does not run. `./bootstrap.sh` and `./aos-up.sh` forward arguments unchanged.
+Flags can be combined. `./up.sh` forwards `--install-only` and `--no-watchdogs` to both orchestrators. `--skip-clone` is passed only to the AOS entry. The JDK script takes no flags; `./up.sh` runs it when `java` or `javac` does not run. `./bootstrap.sh` forwards arguments unchanged.
 
-`./up.sh --help` and `./aos/aos-up.sh --help` print the flags. `./aos-up.sh --help` prints the same AOS help.
+`./up.sh --help` and `./aos/aos-up.sh --help` print the flags.
 
 ## Failure policy
 

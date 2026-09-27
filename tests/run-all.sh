@@ -5,7 +5,6 @@ cd "$ROOT"
 
 bash -n up.sh
 bash -n bootstrap.sh
-bash -n aos-up.sh
 bash -n aos/aos-up.sh
 bash -n java/install-jdk.sh
 bash -n lib/common.sh

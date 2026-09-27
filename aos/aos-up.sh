@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Canonical AOS orchestrator. Repo-root ./aos-up.sh execs this script.
+# Canonical AOS orchestrator.
 # Sources lib/common.sh, then steps/*.sh in order.
 # Flags: --install-only (stop after cronie), --skip-clone, --no-watchdogs.
 # AOS only. Does not implement the gate. Does not use systemd.
