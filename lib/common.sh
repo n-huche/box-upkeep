@@ -1,6 +1,6 @@
 # Shared paths, logging, and flags for ./up.sh and ./aos-up.sh.
 # Sourced by the orchestrators and by a step that is executed directly.
-# Does not configure Tailscale or SSH. Does not print secrets.
+# Does not implement the gate. That stays in box-access.
 
 if [[ -z "${BOX_UPKEEP_COMMON_LOADED:-}" ]]; then
   BOX_UPKEEP_COMMON_LOADED=1
@@ -72,7 +72,7 @@ box_upkeep_usage_aos() {
 Usage: ./aos-up.sh [--install-only] [--skip-clone] [--no-watchdogs] [--help]
 
 Keep AOS alive after a reboot or Update. Sources lib/common.sh, then runs
-steps/*.sh in order. Does not configure Tailscale or sshd.
+steps/*.sh in order. AOS only.
 
   --install-only   timezone + cronie, then stop (no clone, crontab, or watchdogs)
   --skip-clone     do not git clone AOS (later steps need AOS_ROOT already)
@@ -91,19 +91,20 @@ box_upkeep_usage_up() {
 Usage: ./up.sh [--install-only] [--no-watchdogs] [--skip-clone]
                [--access-only] [--aos-only] [--stop-on-error] [--help]
 
-Cold start: run the Tailscale/SSH gate, then AOS.
+Cold start: run ../box-access/up.sh, then ./aos-up.sh.
+This repo does not implement the gate. It only executes that orchestrator.
 
-  ../box-access/up.sh   identity, sshd, and those keep-alive loops
+  ../box-access/up.sh   the gate (packages, identity, keep-alive live there)
   ./aos-up.sh           timezone, cronie, AOS clone, calendar, cron/AOS loops
 
 Failure policy: both sides run. A failing side is reported and the other
 still runs. The exit status is the first non-zero status (access, then aos).
-  --stop-on-error  if the gate fails, do not run aos-up.sh
-  --access-only    gate only
+  --stop-on-error  if box-access/up.sh fails, do not run aos-up.sh
+  --access-only    box-access/up.sh only
   --aos-only       AOS only
-  --install-only   forwarded to both (packages; no auth, clone, or watchdogs)
-  --no-watchdogs   forwarded to both
-  --skip-clone     forwarded only to aos-up.sh (box-access rejects unknown flags)
+  --install-only   forwarded to both orchestrators
+  --no-watchdogs   forwarded to both orchestrators
+  --skip-clone     aos-up.sh only (not forwarded to box-access)
   --help           show this help
 
   BOX_ACCESS_UP    gate entry (default: ../box-access/up.sh)

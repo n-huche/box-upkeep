@@ -1,10 +1,10 @@
 # box-upkeep
 
-Keeps AOS alive after a reboot or an Update on the Grok Bot / Cursor VM. It is not AOS law and it is not Tailscale identity.
+Keeps AOS alive after a reboot or an Update on the Grok Bot / Cursor VM. It is not AOS law.
 
-`./up.sh` is the cold start. It runs the sibling gate [`box-access`](https://github.com/n-huche/box-access) (`../box-access/up.sh`), then `./aos-up.sh`. `./bootstrap.sh` is a thin wrapper that execs `./up.sh` with the same arguments.
+The gate is not implemented here. Nothing from [`box-access`](https://github.com/n-huche/box-access) is vendored: no gate packages, no gate watchdogs, no gate apt workarounds, no gate secrets, no copies of its units or scripts. `./up.sh` only executes that repo's orchestrator (`../box-access/up.sh`, or `BOX_ACCESS_UP`), then `./aos-up.sh`. `./bootstrap.sh` execs `./up.sh` with the same arguments.
 
-There is no conventional systemd here. Cron and AOS stay up through vendored bash loops (`flock` + `nohup`). Tailscale and `sshd` keep-alive live in `box-access` only. This repo used to vendor copies of those two loops; they were removed so the two sides cannot fight.
+There is no conventional systemd here. Cron and AOS stay up through vendored bash loops (`flock` + `nohup`) in this repo.
 
 After an Update, apt packages are often gone and daemons do not come back. `/workspace` persists. Run `./up.sh` again.
 
@@ -47,7 +47,7 @@ Gate only, or AOS only:
 ./up.sh --aos-only
 ```
 
-Packages without clone, auth, sshd, crontab, or watchdogs:
+Packages only (the flag is forwarded to both orchestrators; each repo defines what it installs):
 
 ```bash
 ./up.sh --install-only
@@ -65,7 +65,7 @@ Skip the clone when `/workspace/aos` is already the checkout you want (or set `A
 ./aos-up.sh --skip-clone
 ```
 
-Flags can be combined. `./up.sh` forwards `--install-only` and `--no-watchdogs` to both sides, and `--skip-clone` only to `aos-up.sh` (`box-access` rejects flags it does not know). `./bootstrap.sh` forwards arguments unchanged.
+Flags can be combined. `./up.sh` forwards `--install-only` and `--no-watchdogs` to both orchestrators. `--skip-clone` is passed only to `aos-up.sh`. `./bootstrap.sh` forwards arguments unchanged.
 
 `./up.sh --help` and `./aos-up.sh --help` print the flags.
 
@@ -75,7 +75,7 @@ Flags can be combined. `./up.sh` forwards `--install-only` and `--no-watchdogs` 
 
 `--stop-on-error` changes that: a failing gate skips `aos-up.sh` and the exit status is the gate's. `--access-only` and `--aos-only` run one side on purpose. Those two flags cannot be combined.
 
-Inside `aos-up.sh`, a step failure stops the later AOS steps (same idea as `box-access`). A failed `aos up` does not start the keep-alive loops. Fix the cause and run `./aos-up.sh` again.
+Inside `aos-up.sh`, a step failure stops the later AOS steps. A failed `aos up` does not start the keep-alive loops. Fix the cause and run `./aos-up.sh` again.
 
 ## What one AOS run does
 
@@ -112,30 +112,23 @@ The gate entry defaults to `../box-access/up.sh`. Override with `BOX_ACCESS_UP`.
 | `units/cron-watchdog.sh` | Loop. If `crond` or `cron` is down, start it. `flock` so only one loop runs. Exponential backoff (5s–60s) when the binary is missing. |
 | `units/aos-watchdog.sh` | Loop. When `$AOS_ROOT/scripts/aos` exists, run `aos up --watch-only`. Does not install the crontab (that is step 04). Waits if the binary is not there yet. Same `flock` and backoff. |
 
-Re-run `./up.sh` after reboot or Update. The loops then keep cron and AOS watch up if either process crashes. They are not systemd units. A reboot stops the loops until `up.sh` starts them again.
-
-From another machine on the tailnet, after the gate is up (that login path is `box-access`):
-
-```bash
-ssh -p 2222 box@<tailscale-ipv4>
-```
+Re-run `./up.sh` after reboot or Update. The loops then keep cron and AOS watch up if either process crashes. They are not systemd units. A reboot stops the loops until `up.sh` starts them again. How you reach the box is `box-access`; this repo does not describe that path.
 
 ## Older `/home/box/upkeep` copies
 
-Previous versions installed `/home/box/start.sh` and copied watchdogs into `/home/box/upkeep`, including Tailscale and `sshd`. Those copies are not installed anymore. Step 05 stops leftover **cron** and **aos** watchdogs under `/home/box/upkeep` before starting the copies in this repo. It does not stop Tailscale or `sshd` loops; `box-access` owns those. If an old `/home/box/upkeep/tailscale-watchdog.sh` or `sshd-watchdog.sh` is still running, stop it so it does not fight `box-access`. A reboot clears them too.
+Previous versions installed `/home/box/start.sh` and copied watchdogs into `/home/box/upkeep`, including copies of the gate. Those gate copies are not in this repo and are not installed anymore. Step 05 only replaces this repo's cron and aos loops (here, and a leftover cron/aos pair under `/home/box/upkeep`). It does not start or stop the gate.
 
 ## What git does not store
 
 - Watchdog logs and lock directories
 - `.env` / `.env.*`
 - The AOS checkout and its private `user/` tree
-- Tailscale state, SSH keys, API keys (those are `box-access`, not this repo)
+- Anything the gate stores (that repo, not this one)
 
 ## Rules
 
 - Do not touch the Grok Bot/Cursor platform (`sand-*`, `.cursor`, `chrome-profile`).
 - Do not consume the worker pool.
-- Do not create a Tailscale identity, purge devices, or write `authorized_keys`. Run `box-access`.
-- Do not start a second Tailscale or `sshd` watchdog from this repo.
+- Do not implement the gate in this repo. Do not vendor its packages, watchdogs, apt workarounds, secrets, or units. `./up.sh` only executes `box-access/up.sh`.
 - Does not contain AOS law (tasks, daily). Sets host localtime so AOS `0 0` is agency midnight, installs cronie, clones the AOS repo when it is missing, and keeps `aos up --watch-only` running.
-- Never commit API keys, auth keys, or SSH private keys.
+- Never commit secrets.

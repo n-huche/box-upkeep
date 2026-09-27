@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Cold start for this box: Tailscale/SSH gate, then AOS.
-# Runs BOX_ACCESS_UP (default ../box-access/up.sh), then ./aos-up.sh.
+# Cold start: execute box-access/up.sh, then ./aos-up.sh.
+# Gate logic is not in this repo. BOX_ACCESS_UP overrides the sibling path.
 # A failing side is reported. The other still runs unless --stop-on-error,
 # --access-only, or --aos-only. bootstrap.sh execs this script.
 
