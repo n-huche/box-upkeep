@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Top-level up.sh order and failure policy, using mock entrypoints.
 # Does not run the real gate or aos/aos-up.sh.
-# java/javac stubs stay on PATH so a missing host JDK is not installed here.
+# java/javac/mvn stubs stay on PATH so a missing host JDK or Maven is not installed here.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -30,7 +30,11 @@ cat > "$TMP/bin/javac" << 'EOF'
 #!/bin/bash
 exit 0
 EOF
-chmod +x "$TMP/bin/java" "$TMP/bin/javac"
+cat > "$TMP/bin/mvn" << 'EOF'
+#!/bin/bash
+exit 0
+EOF
+chmod +x "$TMP/bin/java" "$TMP/bin/javac" "$TMP/bin/mvn"
 
 run_up() {
   PATH="$TMP/bin:$PATH" ACCESS_RC=${ACCESS_RC:-0} AOS_RC=${AOS_RC:-0} \
@@ -56,10 +60,17 @@ if ! printf '%s\n' "$out" | grep -qx 'jdk: present'; then
   printf '%s\n' "$out"
   exit 1
 fi
+if ! printf '%s\n' "$out" | grep -qx 'maven: present'; then
+  echo "FAIL success path did not skip a present Maven"
+  printf '%s\n' "$out"
+  exit 1
+fi
 access_line=$(printf '%s\n' "$out" | grep -n '^access:' | head -n1 | cut -d: -f1)
 aos_line=$(printf '%s\n' "$out" | grep -n '^aos:' | head -n1 | cut -d: -f1)
-if (( access_line >= aos_line )); then
-  echo "FAIL gate did not run before aos"
+jdk_line=$(printf '%s\n' "$out" | grep -n '^jdk:' | head -n1 | cut -d: -f1)
+maven_line=$(printf '%s\n' "$out" | grep -n '^maven:' | head -n1 | cut -d: -f1)
+if (( access_line >= aos_line || aos_line >= jdk_line || jdk_line >= maven_line )); then
+  echo "FAIL gate, aos, jdk, and maven did not run in that order"
   exit 1
 fi
 if [[ "$(cat "$ACCESS_LOG")" != "invoked " || "$(cat "$AOS_LOG")" != "invoked " ]]; then
@@ -98,7 +109,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL aos side did not run after a gate failure"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=0 maven=0'; then
   echo "FAIL failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -116,7 +127,7 @@ if [[ "$rc" -ne 5 ]]; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=5 jdk=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=5 jdk=0 maven=0'; then
   echo "FAIL aos failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -138,7 +149,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL both-failure path skipped aos"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=5 jdk=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=5 jdk=0 maven=0'; then
   echo "FAIL both-failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -158,6 +169,11 @@ if [[ "$rc" -ne 4 ]]; then
 fi
 if [[ -e "$AOS_LOG" ]]; then
   echo "FAIL stop-on-error still ran aos"
+  exit 1
+fi
+if printf '%s\n' "$out" | grep -q '^maven:'; then
+  echo "FAIL stop-on-error still reached maven"
+  printf '%s\n' "$out"
   exit 1
 fi
 if ! printf '%s\n' "$out" | grep -q 'stop-on-error: not running aos-up'; then
@@ -212,7 +228,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL missing gate skipped aos"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=127 aos=0 jdk=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=127 aos=0 jdk=0 maven=0'; then
   echo "FAIL missing gate was not reported"
   printf '%s\n' "$out"
   exit 1

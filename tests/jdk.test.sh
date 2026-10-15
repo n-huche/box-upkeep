@@ -61,6 +61,8 @@ cp "$TMP/stub-ok" "$jre_bin/java"
 cp "$TMP/stub-bad" "$bad_bin/java"
 cp "$TMP/stub-ok" "$bad_bin/javac"
 chmod +x "$ok_bin/java" "$ok_bin/javac" "$jre_bin/java" "$bad_bin/java" "$bad_bin/javac"
+cp "$TMP/stub-ok" "$TOOLS/mvn"
+chmod +x "$TOOLS/mvn"
 
 check_present() {
   local path=$1 expect=$2 rc
@@ -435,7 +437,7 @@ if ! printf '%s\n' "$out" | grep -q 'ERROR: jdk install failed status=9'; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=9'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=9 maven=0'; then
   echo "FAIL jdk failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -458,7 +460,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " || "$(cat "$JDK_LOG")" != "invoked " ]];
   echo "FAIL access failure skipped aos or jdk"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=9'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=9 maven=0'; then
   echo "FAIL combined failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -506,7 +508,7 @@ if ! printf '%s\n' "$out" | grep -q 'jdk install entry not executable'; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=127'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=127 maven=0'; then
   echo "FAIL missing jdk script summary missing"
   printf '%s\n' "$out"
   exit 1

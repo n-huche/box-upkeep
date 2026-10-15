@@ -1,4 +1,5 @@
-# Shared paths and flags for ./up.sh and java/install-jdk.sh.
+# Shared paths and flags for ./up.sh, java/install-jdk.sh, and
+# java/install-maven.sh.
 # AOS paths, config, and flags live in aos/lib/common.sh.
 # Does not implement the gate. That stays in box-access.
 
@@ -30,8 +31,13 @@ box_upkeep_set_paths() {
     JDK_INSTALL="$REPO/java/install-jdk.sh"
   fi
   : "${JDK_PACKAGE:=default-jdk}"
+  if [[ -z "${MAVEN_INSTALL:-}" ]]; then
+    MAVEN_INSTALL="$REPO/java/install-maven.sh"
+  fi
+  : "${MAVEN_PACKAGE:=maven}"
   export BOX_ACCESS_UP AOS_UP HOME_BOX
   export JDK_INSTALL JDK_PACKAGE
+  export MAVEN_INSTALL MAVEN_PACKAGE
 }
 
 # aos/config/aos.env may set BOX_ACCESS_UP when it is not already exported.
@@ -74,6 +80,13 @@ box_upkeep_jdk_present() {
   javac -version >/dev/null 2>&1 || return 1
 }
 
+# Maven is present when mvn -v runs.
+# A missing or broken binary fails the check and does not abort the caller.
+box_upkeep_maven_present() {
+  command -v mvn >/dev/null 2>&1 || return 1
+  mvn -v >/dev/null 2>&1 || return 1
+}
+
 box_upkeep_usage_up() {
   cat <<'EOF'
 Usage: ./up.sh [--install-only] [--no-watchdogs] [--skip-clone]
@@ -81,21 +94,25 @@ Usage: ./up.sh [--install-only] [--no-watchdogs] [--skip-clone]
 
 Cold start: run ../box-access/up.sh, then ./aos/aos-up.sh. If java or javac
 does not run, install a JDK afterward (JDK_PACKAGE, default default-jdk).
-This repo does not implement the gate. The gate stays in that orchestrator.
+If mvn -v does not run, install Maven after the JDK (MAVEN_PACKAGE, default
+maven). This repo does not implement the gate. The gate stays in that
+orchestrator.
 
-  ../box-access/up.sh   the gate (packages, identity, keep-alive live there)
-  ./aos/aos-up.sh       timezone, cronie, AOS clone, calendar, cron/AOS loops
-  java/install-jdk.sh   JDK when java or javac does not run (after both sides)
+  ../box-access/up.sh    the gate (packages, identity, keep-alive live there)
+  ./aos/aos-up.sh        timezone, cronie, AOS clone, calendar, cron/AOS loops
+  java/install-jdk.sh    JDK when java or javac does not run (after both sides)
+  java/install-maven.sh  Maven when mvn -v does not run (after the JDK)
 
 Failure policy: the gate and AOS both run. The JDK step runs after them
 when java or javac is missing, including with --install-only, --access-only,
-and --aos-only. A failing side is reported and the others still run. The
-exit status is the first non-zero status (access, then aos, then jdk).
+and --aos-only. The Maven step runs after the JDK on those same flags.
+A failing side is reported and the others still run. The exit status is the
+first non-zero status (access, then aos, then jdk, then maven).
   --stop-on-error  if box-access/up.sh fails, do not run aos/aos-up.sh
-                   (the JDK step is not reached either)
-  --access-only    box-access/up.sh only; a missing JDK is still installed
-  --aos-only       AOS only; a missing JDK is still installed
-  --install-only   forwarded to both orchestrators; a missing JDK is still installed
+                   (the JDK and Maven steps are not reached either)
+  --access-only    box-access/up.sh only; a missing JDK or Maven is still installed
+  --aos-only       AOS only; a missing JDK or Maven is still installed
+  --install-only   forwarded to both orchestrators; a missing JDK or Maven is still installed
   --no-watchdogs   forwarded to both orchestrators
   --skip-clone     aos/aos-up.sh only (not forwarded to box-access)
   --help           show this help
@@ -104,6 +121,8 @@ exit status is the first non-zero status (access, then aos, then jdk).
   AOS_UP           AOS entry (default: ./aos/aos-up.sh)
   JDK_INSTALL      JDK script (default: ./java/install-jdk.sh)
   JDK_PACKAGE      apt package (default: default-jdk)
+  MAVEN_INSTALL    Maven script (default: ./java/install-maven.sh)
+  MAVEN_PACKAGE    apt package (default: maven)
 EOF
 }
 

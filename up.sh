@@ -2,11 +2,13 @@
 # Cold start: execute box-access/up.sh, then aos/aos-up.sh.
 # AOS_UP overrides that entry.
 # When java or javac does not run, java/install-jdk.sh runs after both.
+# When mvn -v does not run, java/install-maven.sh runs after the JDK.
 # Gate logic is not in this repo. BOX_ACCESS_UP overrides the sibling path.
 # A failing side is reported. The other still runs unless --stop-on-error,
-# --access-only, or --aos-only. JDK failure is reported the same way:
-# the exit status is the first non-zero of access, aos, then jdk.
-# --stop-on-error returns before the JDK step when the gate fails.
+# --access-only, or --aos-only. JDK and Maven failures are reported the
+# same way: the exit status is the first non-zero of access, aos, jdk,
+# then maven.
+# --stop-on-error returns before the JDK and Maven steps when the gate fails.
 # bootstrap.sh execs this script.
 
 set -euo pipefail
@@ -35,6 +37,7 @@ fi
 access_rc=0
 aos_rc=0
 jdk_rc=0
+maven_rc=0
 
 if [[ "$AOS_ONLY" -eq 0 ]]; then
   echo "access: $BOX_ACCESS_UP${access_args[*]:+ ${access_args[*]}}"
@@ -76,9 +79,9 @@ else
   echo "aos: skipped (--access-only)"
 fi
 
-# This repo's package step. Runs after the gate and AOS, including
-# --install-only, --access-only, and --aos-only. A gate failure with
-# --stop-on-error returns above, so this step is not reached.
+# JDK step. Runs after the gate and AOS, including --install-only,
+# --access-only, and --aos-only. A gate failure with --stop-on-error
+# returns above, so this step is not reached.
 if box_upkeep_jdk_present; then
   echo "jdk: present"
 else
@@ -97,15 +100,39 @@ else
   fi
 fi
 
-if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 ]]; then
-  echo "up: failed access=$access_rc aos=$aos_rc jdk=$jdk_rc" >&2
+# Maven follows the JDK. Same flags, including --install-only,
+# --access-only, and --aos-only. A gate failure with --stop-on-error
+# returns above, so this step is not reached.
+if box_upkeep_maven_present; then
+  echo "maven: present"
+else
+  echo "maven: $MAVEN_INSTALL"
+  if [[ ! -x "$MAVEN_INSTALL" ]]; then
+    echo "ERROR: maven install entry not executable: $MAVEN_INSTALL" >&2
+    maven_rc=127
+  else
+    set +e
+    "$MAVEN_INSTALL"
+    maven_rc=$?
+    set -e
+  fi
+  if [[ "$maven_rc" -ne 0 ]]; then
+    echo "ERROR: maven install failed status=$maven_rc" >&2
+  fi
+fi
+
+if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 ]]; then
+  echo "up: failed access=$access_rc aos=$aos_rc jdk=$jdk_rc maven=$maven_rc" >&2
   if [[ "$access_rc" -ne 0 ]]; then
     exit "$access_rc"
   fi
   if [[ "$aos_rc" -ne 0 ]]; then
     exit "$aos_rc"
   fi
-  exit "$jdk_rc"
+  if [[ "$jdk_rc" -ne 0 ]]; then
+    exit "$jdk_rc"
+  fi
+  exit "$maven_rc"
 fi
 
 echo "up: ok"
