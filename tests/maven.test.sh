@@ -63,9 +63,16 @@ cp "$TMP/stub-ok" "$bad_bin/java"
 cp "$TMP/stub-ok" "$bad_bin/javac"
 cp "$TMP/stub-ok" "$jdk_bin/java"
 cp "$TMP/stub-ok" "$jdk_bin/javac"
+cat > "$TOOLS/gh" << 'EOF'
+#!/bin/bash
+if [[ "${1:-}" == "auth" && "${2:-}" == "status" ]]; then
+  printf '%s\n' 'n-huche'
+fi
+exit 0
+EOF
 chmod +x "$ok_bin/mvn" "$ok_bin/java" "$ok_bin/javac" \
   "$bad_bin/mvn" "$bad_bin/java" "$bad_bin/javac" \
-  "$jdk_bin/java" "$jdk_bin/javac"
+  "$jdk_bin/java" "$jdk_bin/javac" "$TOOLS/gh"
 
 check_present() {
   local path=$1 expect=$2 rc
@@ -327,6 +334,7 @@ MAVEN_RC=0
 
 run_up() {
   PATH="$UP_PATH:$TOOLS" \
+    HOME_BOX="$TMP/home" \
     ACCESS_RC="$ACCESS_RC" AOS_RC="$AOS_RC" JDK_RC="$JDK_RC" MAVEN_RC="$MAVEN_RC" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     JDK_INSTALL="$JDK_INSTALL" MAVEN_INSTALL="$MAVEN_INSTALL" \
@@ -451,7 +459,7 @@ if ! printf '%s\n' "$out" | grep -q 'ERROR: maven install failed status=6'; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=6'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=6 gh=0'; then
   echo "FAIL maven failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -475,7 +483,7 @@ if [[ "$(cat "$JDK_LOG")" != "invoked " || "$(cat "$MAVEN_LOG")" != "invoked " ]
   echo "FAIL jdk failure skipped maven"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=9 maven=6'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=9 maven=6 gh=0'; then
   echo "FAIL combined jdk and maven summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -500,7 +508,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " || "$(cat "$MAVEN_LOG")" != "invoked " ]
   echo "FAIL access failure skipped aos or maven"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=0 maven=6'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=0 maven=6 gh=0'; then
   echo "FAIL combined failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -555,7 +563,7 @@ if ! printf '%s\n' "$out" | grep -q 'maven install entry not executable'; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=127'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=127 gh=0'; then
   echo "FAIL missing maven script summary missing"
   printf '%s\n' "$out"
   exit 1

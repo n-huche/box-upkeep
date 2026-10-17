@@ -3,12 +3,16 @@
 # AOS_UP overrides that entry.
 # When java or javac does not run, java/install-jdk.sh runs after both.
 # When mvn -v does not run, java/install-maven.sh runs after the JDK.
+# When gh --version does not run, gh/install-gh.sh runs after Maven.
+# A github.com login in /home/box/.config/gh is checked on every run.
+# A missing login warns and does not fail this script.
 # Gate logic is not in this repo. BOX_ACCESS_UP overrides the sibling path.
 # A failing side is reported. The other still runs unless --stop-on-error,
-# --access-only, or --aos-only. JDK and Maven failures are reported the
-# same way: the exit status is the first non-zero of access, aos, jdk,
-# then maven.
-# --stop-on-error returns before the JDK and Maven steps when the gate fails.
+# --access-only, or --aos-only. JDK, Maven, and GitHub CLI failures are
+# reported the same way: the exit status is the first non-zero of access,
+# aos, jdk, maven, then gh.
+# --stop-on-error returns before the JDK, Maven, and GitHub CLI steps when
+# the gate fails.
 # bootstrap.sh execs this script.
 
 set -euo pipefail
@@ -38,6 +42,7 @@ access_rc=0
 aos_rc=0
 jdk_rc=0
 maven_rc=0
+gh_rc=0
 
 if [[ "$AOS_ONLY" -eq 0 ]]; then
   echo "access: $BOX_ACCESS_UP${access_args[*]:+ ${access_args[*]}}"
@@ -121,8 +126,33 @@ else
   fi
 fi
 
-if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 ]]; then
-  echo "up: failed access=$access_rc aos=$aos_rc jdk=$jdk_rc maven=$maven_rc" >&2
+# GitHub CLI follows Maven. Same flags, including --install-only,
+# --access-only, and --aos-only. A gate failure with --stop-on-error
+# returns above, so this step is not reached. A missing login warns
+# inside box_upkeep_gh_auth and does not change gh_rc.
+if box_upkeep_gh_present; then
+  echo "gh: present"
+else
+  echo "gh: $GH_INSTALL"
+  if [[ ! -x "$GH_INSTALL" ]]; then
+    echo "ERROR: gh install entry not executable: $GH_INSTALL" >&2
+    gh_rc=127
+  else
+    set +e
+    "$GH_INSTALL"
+    gh_rc=$?
+    set -e
+  fi
+  if [[ "$gh_rc" -ne 0 ]]; then
+    echo "ERROR: gh install failed status=$gh_rc" >&2
+  fi
+fi
+if [[ "$gh_rc" -eq 0 ]] && box_upkeep_gh_present; then
+  box_upkeep_gh_auth
+fi
+
+if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 || "$gh_rc" -ne 0 ]]; then
+  echo "up: failed access=$access_rc aos=$aos_rc jdk=$jdk_rc maven=$maven_rc gh=$gh_rc" >&2
   if [[ "$access_rc" -ne 0 ]]; then
     exit "$access_rc"
   fi
@@ -132,7 +162,10 @@ if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -n
   if [[ "$jdk_rc" -ne 0 ]]; then
     exit "$jdk_rc"
   fi
-  exit "$maven_rc"
+  if [[ "$maven_rc" -ne 0 ]]; then
+    exit "$maven_rc"
+  fi
+  exit "$gh_rc"
 fi
 
 echo "up: ok"
