@@ -1,5 +1,5 @@
-# Shared paths and flags for ./up.sh, java/install-jdk.sh, and
-# java/install-maven.sh.
+# Shared paths and flags for ./up.sh, java/install-jdk.sh,
+# java/install-maven.sh, and gh/install-gh.sh.
 # AOS paths, config, and flags live in aos/lib/common.sh.
 # Does not implement the gate. That stays in box-access.
 
@@ -35,9 +35,20 @@ box_upkeep_set_paths() {
     MAVEN_INSTALL="$REPO/java/install-maven.sh"
   fi
   : "${MAVEN_PACKAGE:=maven}"
+  if [[ -z "${GH_INSTALL:-}" ]]; then
+    GH_INSTALL="$REPO/gh/install-gh.sh"
+  fi
+  : "${GH_EXPECTED_USER:=n-huche}"
+  if [[ -z "${GH_CONFIG_DIR:-}" ]]; then
+    GH_CONFIG_DIR="${HOME_BOX}/.config/gh"
+  fi
+  if [[ -z "${BOX_ACCESS_SECRETS:-}" ]]; then
+    BOX_ACCESS_SECRETS="${HOME_BOX}/.config/box-access/secrets.env"
+  fi
   export BOX_ACCESS_UP AOS_UP HOME_BOX
   export JDK_INSTALL JDK_PACKAGE
   export MAVEN_INSTALL MAVEN_PACKAGE
+  export GH_INSTALL GH_EXPECTED_USER GH_CONFIG_DIR BOX_ACCESS_SECRETS
 }
 
 # aos/config/aos.env may set BOX_ACCESS_UP when it is not already exported.
@@ -87,6 +98,176 @@ box_upkeep_maven_present() {
   mvn -v >/dev/null 2>&1 || return 1
 }
 
+# GitHub CLI is present when gh --version runs.
+# A missing or broken binary fails the check and does not abort the caller.
+box_upkeep_gh_present() {
+  command -v gh >/dev/null 2>&1 || return 1
+  gh --version >/dev/null 2>&1 || return 1
+}
+
+# Run gh with the persisted config and without ambient tokens.
+# gh auth status treats GH_TOKEN / GITHUB_TOKEN as a login, which would hide
+# an empty /home/box/.config/gh. The child environment drops those variables.
+box_upkeep_gh_cmd() {
+  local config_dir=$1
+  shift
+  (
+    unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN
+    export GH_CONFIG_DIR="$config_dir"
+    gh "$@"
+  )
+}
+
+# Print the active github.com login, or return 1.
+# Stdout is only a GitHub username. Token-shaped text is rejected.
+box_upkeep_gh_login_name() {
+  local config_dir=$1 login rc
+  set +e
+  login=$(box_upkeep_gh_cmd "$config_dir" auth status \
+    --hostname github.com \
+    --active \
+    --json hosts \
+    --jq '.hosts["github.com"][] | select(.state=="success") | .login' 2>/dev/null)
+  rc=$?
+  set -e
+  login=${login%%$'\n'*}
+  login=${login%$'\r'}
+  if [[ "$rc" -ne 0 || ${#login} -gt 39 || ! "$login" =~ ^[A-Za-z0-9]([A-Za-z0-9]|-[A-Za-z0-9])*$ ]]; then
+    return 1
+  fi
+  printf '%s' "$login"
+}
+
+# Read GH_TOKEN from the box-access secrets file. Do not source the file:
+# it also holds other secrets, and sourcing would expand them under set -x.
+# Prints the value on stdout. Callers disable xtrace before calling.
+box_upkeep_read_gh_token() {
+  local file=$1 line val xtrace=0
+  case $- in *x*) xtrace=1; set +x ;; esac
+  if [[ ! -f "$file" || ! -r "$file" ]]; then
+    if [[ "$xtrace" -eq 1 ]]; then set -x; fi
+    return 1
+  fi
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line=${line%$'\r'}
+    line=${line#"${line%%[![:space:]]*}"}
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    if [[ "$line" == export[[:space:]]* ]]; then
+      line=${line#export}
+      line=${line#"${line%%[![:space:]]*}"}
+    fi
+    [[ "$line" == GH_TOKEN=* ]] || continue
+    val=${line#GH_TOKEN=}
+    if [[ ${#val} -ge 2 && "$val" == \"*\" && "$val" == *\" ]]; then
+      val=${val:1:${#val}-2}
+    elif [[ ${#val} -ge 2 && "$val" == \'*\' && "$val" == *\' ]]; then
+      val=${val:1:${#val}-2}
+    fi
+    if [[ -z "$val" ]]; then
+      unset val
+      continue
+    fi
+    printf '%s' "$val"
+    unset val line
+    return 0
+  done < "$file"
+  unset val line
+  if [[ "$xtrace" -eq 1 ]]; then set -x; fi
+  return 1
+}
+
+# Pipe the secrets-file GH_TOKEN into gh auth login. Never print the value.
+# Returns 0 on success, 2 when the token is absent, 1 when login fails.
+# Restores the caller's xtrace and errexit. A failing return must not run
+# under set -e, or the caller exits before it can warn.
+box_upkeep_gh_login_with_token() {
+  local config_dir=$1 secrets=$2 token rc xtrace=0 errexit=0
+  local -a pipe_rc
+  case $- in *x*) xtrace=1 ;; esac
+  case $- in *e*) errexit=1 ;; esac
+  set +x
+  set +e
+  token=$(box_upkeep_read_gh_token "$secrets") || true
+  if [[ -z "${token:-}" ]]; then
+    unset token
+    if [[ "$errexit" -eq 1 ]]; then set -e; fi
+    if [[ "$xtrace" -eq 1 ]]; then set -x; fi
+    return 2
+  fi
+  printf '%s\n' "$token" | box_upkeep_gh_cmd "$config_dir" auth login \
+    --hostname github.com --git-protocol https --with-token >/dev/null 2>&1
+  pipe_rc=("${PIPESTATUS[@]}")
+  unset token
+  if [[ "$errexit" -eq 1 ]]; then set -e; fi
+  if [[ "$xtrace" -eq 1 ]]; then set -x; fi
+  rc=${pipe_rc[1]:-1}
+  if [[ "${pipe_rc[0]:-1}" -ne 0 || "$rc" -ne 0 ]]; then
+    return 1
+  fi
+  return 0
+}
+
+box_upkeep_gh_warn() {
+  local reason=$1 config_dir=$2
+  echo "WARNING: ${reason}. The login in ${config_dir} survives a wipe. Run: GH_CONFIG_DIR=${config_dir} gh auth login --hostname github.com" >&2
+}
+
+box_upkeep_gh_setup_git() {
+  local config_dir=$1 login=$2 rc
+  set +e
+  box_upkeep_gh_cmd "$config_dir" auth setup-git --hostname github.com >/dev/null 2>&1
+  rc=$?
+  set -e
+  if [[ "$rc" -ne 0 ]]; then
+    box_upkeep_gh_warn "gh auth setup-git failed for github.com" "$config_dir"
+    return 0
+  fi
+  echo "gh: logged in as ${login}"
+}
+
+# Check github.com on the persisted config. Install failures are separate.
+# A missing login, a missing GH_TOKEN, a failed token login, or an unexpected
+# account warns and returns 0. The token is never printed.
+box_upkeep_gh_auth() {
+  local config_dir expected secrets login token_rc
+  config_dir=${GH_CONFIG_DIR:-${HOME_BOX}/.config/gh}
+  expected=${GH_EXPECTED_USER:-n-huche}
+  secrets=${BOX_ACCESS_SECRETS:-${HOME_BOX}/.config/box-access/secrets.env}
+
+  if login=$(box_upkeep_gh_login_name "$config_dir"); then
+    if [[ "$login" == "$expected" ]]; then
+      box_upkeep_gh_setup_git "$config_dir" "$login"
+      return 0
+    fi
+    box_upkeep_gh_warn "gh on github.com is logged in as ${login}, expected ${expected}" "$config_dir"
+    return 0
+  fi
+
+  set +e
+  box_upkeep_gh_login_with_token "$config_dir" "$secrets"
+  token_rc=$?
+  set -e
+  if [[ "$token_rc" -eq 2 ]]; then
+    box_upkeep_gh_warn "gh is not logged in to github.com" "$config_dir"
+    return 0
+  fi
+  if [[ "$token_rc" -ne 0 ]]; then
+    box_upkeep_gh_warn "gh auth login failed for github.com" "$config_dir"
+    return 0
+  fi
+
+  if login=$(box_upkeep_gh_login_name "$config_dir"); then
+    if [[ "$login" == "$expected" ]]; then
+      box_upkeep_gh_setup_git "$config_dir" "$login"
+      return 0
+    fi
+    box_upkeep_gh_warn "gh on github.com is logged in as ${login}, expected ${expected}" "$config_dir"
+    return 0
+  fi
+  box_upkeep_gh_warn "gh auth login failed for github.com" "$config_dir"
+  return 0
+}
+
 box_upkeep_usage_up() {
   cat <<'EOF'
 Usage: ./up.sh [--install-only] [--no-watchdogs] [--skip-clone]
@@ -95,34 +276,44 @@ Usage: ./up.sh [--install-only] [--no-watchdogs] [--skip-clone]
 Cold start: run ../box-access/up.sh, then ./aos/aos-up.sh. If java or javac
 does not run, install a JDK afterward (JDK_PACKAGE, default default-jdk).
 If mvn -v does not run, install Maven after the JDK (MAVEN_PACKAGE, default
-maven). This repo does not implement the gate. The gate stays in that
-orchestrator.
+maven). If gh --version does not run, install GitHub CLI after Maven from
+the official apt repository. This repo does not implement the gate. The
+gate stays in that orchestrator.
 
   ../box-access/up.sh    the gate (packages, identity, keep-alive live there)
   ./aos/aos-up.sh        timezone, cronie, AOS clone, calendar, cron/AOS loops
   java/install-jdk.sh    JDK when java or javac does not run (after both sides)
   java/install-maven.sh  Maven when mvn -v does not run (after the JDK)
+  gh/install-gh.sh       gh when gh --version does not run (after Maven)
 
 Failure policy: the gate and AOS both run. The JDK step runs after them
 when java or javac is missing, including with --install-only, --access-only,
 and --aos-only. The Maven step runs after the JDK on those same flags.
-A failing side is reported and the others still run. The exit status is the
-first non-zero status (access, then aos, then jdk, then maven).
+The GitHub CLI step runs after Maven on those same flags. A failing side
+is reported and the others still run. The exit status is the first non-zero
+status (access, then aos, then jdk, then maven, then gh). A missing
+github.com login, a missing GH_TOKEN, a failed token login, or an
+unexpected account is a warning and does not change the exit status.
   --stop-on-error  if box-access/up.sh fails, do not run aos/aos-up.sh
-                   (the JDK and Maven steps are not reached either)
-  --access-only    box-access/up.sh only; a missing JDK or Maven is still installed
-  --aos-only       AOS only; a missing JDK or Maven is still installed
-  --install-only   forwarded to both orchestrators; a missing JDK or Maven is still installed
+                   (the JDK, Maven, and GitHub CLI steps are not reached either)
+  --access-only    box-access/up.sh only; a missing JDK, Maven, or gh is still installed
+  --aos-only       AOS only; a missing JDK, Maven, or gh is still installed
+  --install-only   forwarded to both orchestrators; a missing JDK, Maven, or gh is still installed
   --no-watchdogs   forwarded to both orchestrators
   --skip-clone     aos/aos-up.sh only (not forwarded to box-access)
   --help           show this help
 
-  BOX_ACCESS_UP    gate entry (default: ../box-access/up.sh)
-  AOS_UP           AOS entry (default: ./aos/aos-up.sh)
-  JDK_INSTALL      JDK script (default: ./java/install-jdk.sh)
-  JDK_PACKAGE      apt package (default: default-jdk)
-  MAVEN_INSTALL    Maven script (default: ./java/install-maven.sh)
-  MAVEN_PACKAGE    apt package (default: maven)
+  BOX_ACCESS_UP      gate entry (default: ../box-access/up.sh)
+  AOS_UP             AOS entry (default: ./aos/aos-up.sh)
+  JDK_INSTALL        JDK script (default: ./java/install-jdk.sh)
+  JDK_PACKAGE        apt package (default: default-jdk)
+  MAVEN_INSTALL      Maven script (default: ./java/install-maven.sh)
+  MAVEN_PACKAGE      apt package (default: maven)
+  GH_INSTALL         GitHub CLI script (default: ./gh/install-gh.sh)
+  GH_EXPECTED_USER   account that may run gh auth setup-git (default: n-huche)
+  GH_CONFIG_DIR      persisted gh config (default: /home/box/.config/gh)
+  BOX_ACCESS_SECRETS secrets file; only a GH_TOKEN line is read
+                     (default: /home/box/.config/box-access/secrets.env)
 EOF
 }
 
