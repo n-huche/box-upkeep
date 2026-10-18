@@ -50,7 +50,7 @@ step_cronie() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-  source "$(cd "$(dirname "$0")/.." && pwd)/lib/common.sh"
+  source "$(dirname "$(/usr/bin/realpath "$0")")/../lib/common.sh"
   box_upkeep_parse_aos_args "$@"
   step_cronie
 fi

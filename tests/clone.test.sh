@@ -2,7 +2,7 @@
 # Clone step with a mock git on PATH. Does not touch the network.
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(realpath "$(dirname "$0")/..")
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 

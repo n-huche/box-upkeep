@@ -2,7 +2,7 @@
 # The gate lives only in box-access. This tree must not vendor it.
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(realpath "$(dirname "$0")/..")
 
 if [[ -d "$ROOT/units" || -d "$ROOT/steps" || -d "$ROOT/config" || -f "$ROOT/packages.txt" || -f "$ROOT/aos-up.sh" ]]; then
   echo "FAIL AOS cold-start files are still at the repo root"
@@ -44,3 +44,26 @@ if [[ -n "$hits" ]]; then
   exit 1
 fi
 echo "ok no gate packages, secrets, apt, or listen logic"
+
+old=$(grep -R -n -e '/workspace/box-upkeep' -e '/workspace/box-access' \
+  --exclude-dir=.git --exclude-dir=tests "$ROOT" || true)
+if [[ -n "$old" ]]; then
+  echo "FAIL old checkout path is still hardcoded"
+  printf '%s\n' "$old"
+  exit 1
+fi
+example=$(grep -R -n '/workspace/box-infra' \
+  --exclude-dir=.git --exclude-dir=tests --exclude=README.md "$ROOT" || true)
+if [[ -n "$example" ]]; then
+  echo "FAIL /workspace/box-infra example belongs only in the docs"
+  printf '%s\n' "$example"
+  exit 1
+fi
+for rel in up.sh lib/common.sh aos/units/aos-watchdog.sh aos/units/cron-watchdog.sh \
+  aos/steps/04-calendar.sh aos/steps/05-watchdogs.sh aos/lib/proc.sh; do
+  if ! grep -q 'realpath' "$ROOT/$rel"; then
+    echo "FAIL $rel does not derive a path with realpath"
+    exit 1
+  fi
+done
+echo "ok checkout paths come from the script, not a fixed box path"

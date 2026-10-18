@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # shellcheck source=../lib/common.sh
-source "$(cd "$(dirname "$0")/.." && pwd)/lib/common.sh"
+source "$(dirname "$(/usr/bin/realpath "$0")")/../lib/common.sh"
 
 pkg=$MAVEN_PACKAGE
 

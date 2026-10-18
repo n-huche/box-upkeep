@@ -3,7 +3,7 @@
 # up.sh cases use mock gate, aos, and jdk entries.
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(realpath "$(dirname "$0")/..")
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
