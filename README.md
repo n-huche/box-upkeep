@@ -11,7 +11,7 @@ There is no conventional systemd here. Cron and AOS stay up through vendored bas
 No systemd: a reboot or an Update kills those loops. They do not come back by themselves. Apt packages, including a JDK and Maven, are often gone as well. `/workspace` persists. From the VM console:
 
 ```bash
-cd /workspace/box-upkeep && ./up.sh
+cd /workspace/box-infra/box-upkeep && ./up.sh
 ```
 
 That one command runs the gate (`../box-access/up.sh`) and then AOS (`./aos/aos-up.sh`). When `java` or `javac` does not run, `./up.sh` installs `default-jdk`. On Ubuntu 24.04 that package depends on `openjdk-21-jdk`. Set `JDK_PACKAGE` to choose another apt package, such as `openjdk-17-jdk`. A JDK that already runs is left alone (`jdk: present`). When `mvn -v` does not run, `./up.sh` then installs the apt package `maven`. On Debian 13 (trixie) that package is Maven 3.9.9, and it runs on the JDK 21 from `default-jdk`. Set `MAVEN_PACKAGE` to choose another apt package. A Maven that already runs is left alone (`maven: present`). When `gh --version` does not run, `./up.sh` adds the official GitHub CLI apt repository and installs `gh`. The keyring is `/etc/apt/keyrings/githubcli-archive-keyring.gpg` and the source is `https://cli.github.com/packages`. A `gh` that already runs is left alone (`gh: present`).
@@ -53,7 +53,7 @@ The `aos/` directory in this repo is cold-start code. It is not the AOS checkout
 Cold start is the console command above. `./bootstrap.sh` does the same thing; prefer `./up.sh`. Pull first when this checkout should match the remote:
 
 ```bash
-cd /workspace/box-upkeep
+cd /workspace/box-infra/box-upkeep
 git pull
 ./up.sh
 ```

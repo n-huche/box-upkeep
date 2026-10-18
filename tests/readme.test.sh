@@ -15,7 +15,7 @@ need() {
   fi
 }
 
-need "$readme" "cd /workspace/box-upkeep && ./up.sh"
+need "$readme" "cd /workspace/box-infra/box-upkeep && ./up.sh"
 need "$readme" "VM console"
 need "$readme" "No systemd"
 need "$readme" "kills those loops"
