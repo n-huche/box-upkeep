@@ -87,8 +87,8 @@ Flags change this as in the table above. Otherwise:
 1. **`aos/steps/01-timezone.sh`** — Set the host localtime to `America/Sao_Paulo` (`BOX_TZ`). Debian cron and Debian cronie schedule in local time and ignore `CRON_TZ`, so AOS `0 0` is agency midnight only when the host zone is that zone.
 2. **`aos/steps/02-cronie.sh`** — Install `cronie` from `aos/packages.txt` if it is missing. Start `/usr/sbin/crond` (or `/usr/sbin/cron`) once when no cron daemon is running.
 3. **`aos/steps/03-clone-aos.sh`** — If `AOS_ROOT` (default `/workspace/aos`) has no `.git`, `git clone` `AOS_REPO_URL`. A checkout that is already present is left as-is (no pull). A path that exists and is not a git clone is an error. `--skip-clone` prints `clone: skipped` and does not fetch.
-4. **`aos/steps/04-calendar.sh`** — Run `$AOS_ROOT/scripts/aos up` (crontab + catch-up, not `--watch-only`). A missing binary, a non-zero exit, `crontab-error:`, or `crontab-unavailable` fails the step.
-5. **`aos/steps/05-watchdogs.sh`** — Stop a previous cron/AOS watchdog from this repo (`aos/units/`, a leftover pair started from the old repo-root `units/`, and a leftover copy under `/home/box/upkeep/` of those two scripts), then start `aos/units/cron-watchdog.sh` and `aos/units/aos-watchdog.sh`. Skipped with `--no-watchdogs`.
+4. **`aos/steps/04-calendar.sh`** — Run `$AOS_ROOT/scripts/aos up` (crontab + catch-up, not `--watch-only`). `AOS_ROOT` is resolved with `realpath` before that run, so the crontab stores the canonical checkout. A symlink path in that crontab that lands inside this repo or inside `AOS_ROOT` is rewritten to the real path. A missing binary, a non-zero exit, `crontab-error:`, or `crontab-unavailable` fails the step.
+5. **`aos/steps/05-watchdogs.sh`** — Start `aos/units/cron-watchdog.sh` and `aos/units/aos-watchdog.sh` from the real path of this checkout. A watchdog already running as that same file (the path you typed, or a symlink to it) is left in place. A watchdog still running from another path — a previous checkout, the old repo-root `units/`, or `/home/box/upkeep/` — is stopped and replaced. The AOS watch process is not stopped. Skipped with `--no-watchdogs`.
 
 ## AOS checkout
 
@@ -106,20 +106,22 @@ AOS_REPO_URL=https://github.com/n-huche/aos.git AOS_ROOT=/workspace/aos ./aos/ao
 
 An exported variable wins over `aos/config/aos.env`. The clone does not prompt (`GIT_TERMINAL_PROMPT=0`). This repo does not clone private life into the AOS checkout's `user/` tree (`/workspace/aos/user`). AOS needs that tree on disk for daily close; clone it yourself if you keep one. This repo does not contain tasks, dailies, or other AOS law.
 
-The gate entry defaults to `../box-access/up.sh`. Override with `BOX_ACCESS_UP` (environment, or `BOX_ACCESS_UP` in `aos/config/aos.env` when it is not already set). `AOS_UP` overrides `./aos/aos-up.sh` (tests and unusual layouts). `JDK_INSTALL` overrides `./java/install-jdk.sh`. `JDK_PACKAGE` overrides the apt package name (default `default-jdk`). `MAVEN_INSTALL` overrides `./java/install-maven.sh`. `MAVEN_PACKAGE` overrides the apt package name (default `maven`). `GH_INSTALL` overrides `./gh/install-gh.sh`. `GH_EXPECTED_USER` overrides the account that may run `gh auth setup-git` (default `n-huche`). `GH_CONFIG_DIR` overrides the persisted config directory (default `/home/box/.config/gh`). `BOX_ACCESS_SECRETS` overrides the secrets file whose `GH_TOKEN` line is read (default `/home/box/.config/box-access/secrets.env`).
+The gate entry defaults to the sibling `../box-access/up.sh`, taken from the real path of this checkout (on the box, `/workspace/box-infra/box-access/up.sh`). Override with `BOX_ACCESS_UP` (environment, or `BOX_ACCESS_UP` in `aos/config/aos.env` when it is not already set). `AOS_UP` overrides `./aos/aos-up.sh` (tests and unusual layouts). `JDK_INSTALL` overrides `./java/install-jdk.sh`. `JDK_PACKAGE` overrides the apt package name (default `default-jdk`). `MAVEN_INSTALL` overrides `./java/install-maven.sh`. `MAVEN_PACKAGE` overrides the apt package name (default `maven`). `GH_INSTALL` overrides `./gh/install-gh.sh`. `GH_EXPECTED_USER` overrides the account that may run `gh auth setup-git` (default `n-huche`). `GH_CONFIG_DIR` overrides the persisted config directory (default `/home/box/.config/gh`). `BOX_ACCESS_SECRETS` overrides the secrets file whose `GH_TOKEN` line is read (default `/home/box/.config/box-access/secrets.env`).
 
 ## Keep-alive
 
 | Unit | Behavior |
 |---|---|
-| `aos/units/cron-watchdog.sh` | Loop. If `crond` or `cron` is down, start it. `flock` so only one loop runs. Exponential backoff (5s–60s) when the binary is missing. |
-| `aos/units/aos-watchdog.sh` | Loop. When `$AOS_ROOT/scripts/aos` exists, run `aos up --watch-only`. Does not install the crontab (that is step 04). Waits if the binary is not there yet. Same `flock` and backoff. |
+| `aos/units/cron-watchdog.sh` | Loop. If `crond` or `cron` is down, start it. `flock` so only one loop runs for this file. Exponential backoff (5s–60s) when the binary is missing. |
+| `aos/units/aos-watchdog.sh` | Loop. When `$AOS_ROOT/scripts/aos` exists, run `aos up --watch-only` only if that watch is not already up (pidfile or realpath). Does not install the crontab (that is step 04). Waits if the binary is not there yet. Same `flock` and backoff. |
+
+Identity is the real path of the unit script, or the pid recorded in its lock file. Invoking `./up.sh` through a symlink, through the real path, or through an old path that is the same file does not start a second loop. A loop whose script is a different file is replaced by the one from this checkout. Replacing that loop does not restart `aos watch` when the watch pidfile or command line already belongs to `AOS_ROOT` (default `/workspace/aos`).
 
 The loops keep cron and AOS watch up if either process crashes. They are not systemd units, so a reboot or an Update stops them until the console command above starts them again. How you reach the box is `box-access`; this repo does not describe that path.
 
 ## Older `/home/box/upkeep` copies
 
-Previous versions installed `/home/box/start.sh` and copied watchdogs into `/home/box/upkeep`, including copies of the gate. Those gate copies are not in this repo and are not installed anymore. Step 05 only replaces this repo's cron and aos loops (`aos/units/`, a leftover pair started from the old repo-root `units/`, and a leftover cron/aos pair under `/home/box/upkeep`). It does not start or stop the gate.
+Previous versions installed `/home/box/start.sh` and copied watchdogs into `/home/box/upkeep`, including copies of the gate. Those gate copies are not in this repo and are not installed anymore. Step 05 replaces a cron or aos loop whose script is not the real file in `aos/units/` (a previous checkout, the old repo-root `units/`, or a leftover pair under `/home/box/upkeep`). It does not start or stop the gate, and it does not restart an AOS watch that is already running.
 
 ## What git does not store
 

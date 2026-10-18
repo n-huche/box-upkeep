@@ -7,11 +7,16 @@ if [[ -z "${AOS_UPKEEP_COMMON_LOADED:-}" ]]; then
   set -euo pipefail
 fi
 
+_aos_lib=$(dirname "$(/usr/bin/realpath "${BASH_SOURCE[0]}")")
+# shellcheck source=proc.sh
+source "$_aos_lib/proc.sh"
+unset _aos_lib
+
 aos_upkeep_set_paths() {
   local lib_dir
-  lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  lib_dir=$(box_upkeep_script_dir "${BASH_SOURCE[0]}")
   AOS_LIB_DIR=$lib_dir
-  REPO=$(cd "$lib_dir/.." && pwd)
+  REPO=$(box_upkeep_realpath "$lib_dir/..")
   HOME_BOX="${HOME_BOX:-/home/box}"
   INSTALL_ONLY="${INSTALL_ONLY:-0}"
   NO_WATCHDOGS="${NO_WATCHDOGS:-0}"

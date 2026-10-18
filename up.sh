@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-REPO=$(cd "$(dirname "$0")" && pwd)
+REPO=$(dirname "$(/usr/bin/realpath "$0")")
 # shellcheck source=lib/common.sh
 source "$REPO/lib/common.sh"
 box_upkeep_parse_up_args "$@"

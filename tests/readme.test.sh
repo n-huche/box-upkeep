@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(realpath "$(dirname "$0")/..")
 readme=$ROOT/README.md
 entry=$ROOT/up.sh
 aos=$ROOT/aos/aos-up.sh
@@ -16,6 +16,8 @@ need() {
 }
 
 need "$readme" "cd /workspace/box-infra/box-upkeep && ./up.sh"
+need "$readme" "/workspace/box-infra/box-access/up.sh"
+need "$readme" "realpath"
 need "$readme" "VM console"
 need "$readme" "No systemd"
 need "$readme" "kills those loops"

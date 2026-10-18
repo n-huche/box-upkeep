@@ -8,11 +8,16 @@ if [[ -z "${BOX_UPKEEP_COMMON_LOADED:-}" ]]; then
   set -euo pipefail
 fi
 
+_box_lib=$(dirname "$(/usr/bin/realpath "${BASH_SOURCE[0]}")")
+# shellcheck source=../aos/lib/proc.sh
+source "$_box_lib/../aos/lib/proc.sh"
+unset _box_lib
+
 box_upkeep_set_paths() {
   local lib_dir
-  lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  lib_dir=$(box_upkeep_script_dir "${BASH_SOURCE[0]}")
   BOX_LIB_DIR=$lib_dir
-  REPO=$(cd "$lib_dir/.." && pwd)
+  REPO=$(box_upkeep_realpath "$lib_dir/..")
   HOME_BOX="${HOME_BOX:-/home/box}"
   INSTALL_ONLY="${INSTALL_ONLY:-0}"
   NO_WATCHDOGS="${NO_WATCHDOGS:-0}"
@@ -22,7 +27,8 @@ box_upkeep_set_paths() {
   STOP_ON_ERROR="${STOP_ON_ERROR:-0}"
   box_upkeep_load_access_config
   if [[ -z "${BOX_ACCESS_UP:-}" ]]; then
-    BOX_ACCESS_UP="$(cd "$REPO/.." && pwd)/box-access/up.sh"
+    # Sibling of this checkout's real path, not of a symlink used to invoke it.
+    BOX_ACCESS_UP="$(dirname "$REPO")/box-access/up.sh"
   fi
   if [[ -z "${AOS_UP:-}" ]]; then
     AOS_UP="$REPO/aos/aos-up.sh"
@@ -303,7 +309,7 @@ unexpected account is a warning and does not change the exit status.
   --skip-clone     aos/aos-up.sh only (not forwarded to box-access)
   --help           show this help
 
-  BOX_ACCESS_UP      gate entry (default: ../box-access/up.sh)
+  BOX_ACCESS_UP      gate entry (default: ../box-access/up.sh next to this checkout)
   AOS_UP             AOS entry (default: ./aos/aos-up.sh)
   JDK_INSTALL        JDK script (default: ./java/install-jdk.sh)
   JDK_PACKAGE        apt package (default: default-jdk)

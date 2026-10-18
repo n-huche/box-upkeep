@@ -3,7 +3,7 @@
 # install packages, clone AOS, or start watchdogs.
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(realpath "$(dirname "$0")/..")
 # shellcheck source=../aos/lib/common.sh
 source "$ROOT/aos/lib/common.sh"
 

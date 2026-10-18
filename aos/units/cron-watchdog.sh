@@ -1,12 +1,25 @@
 #!/usr/bin/env bash
 # Keep crond/cron up. The calendar crontab belongs to AOS (`aos up`).
 # Started by steps/05-watchdogs.sh (bash, flock, nohup). Not a systemd unit.
+# A second start of this same file (real path or a symlink) exits.
+# A copy still running from another path is stopped first.
 
 set -u
 
-UPKEEP=$(cd "$(dirname "$0")" && pwd)
+_unit=$(dirname "$(/usr/bin/realpath "$0")")
+UPKEEP=$_unit
 LOG="$UPKEEP/cron-watchdog.log"
 LOCK_DIR="$UPKEEP/cron-watchdog.lock"
+
+if [[ "${1:-}" == "--print-dir" ]]; then
+  printf '%s\n' "$UPKEEP"
+  exit 0
+fi
+
+# shellcheck source=../lib/proc.sh
+source "$_unit/../lib/proc.sh"
+box_upkeep_stop_other_watchdogs "$(/usr/bin/realpath "$0")" || exit 1
+
 # cronie provides crond; Debian cron 3.0pl1 is /usr/sbin/cron and ignores CRON_TZ.
 BIN=/usr/sbin/crond
 if [[ ! -x "$BIN" ]]; then
@@ -20,12 +33,12 @@ log() {
 }
 
 mkdir -p "$LOCK_DIR"
-exec 9>"$LOCK_DIR/pid"
+exec 9<>"$LOCK_DIR/pid"
 if ! flock -n 9; then
   echo "cron-watchdog already running" >&2
   exit 0
 fi
-echo $$ >&9
+printf '%s\n' "$$" >"$LOCK_DIR/pid"
 
 backoff=$MIN_BACKOFF
 log "watchdog start pid=$$"

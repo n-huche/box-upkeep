@@ -3,7 +3,7 @@
 # Mock apt, curl, and gh. No network. Tokens stay out of stdout, stderr, and xtrace.
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(realpath "$(dirname "$0")/..")
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -47,6 +47,12 @@ fi
 sec=$(env -u BOX_ACCESS_SECRETS -u HOME_BOX bash -c 'source "$1"; printf %s "$BOX_ACCESS_SECRETS"' _ "$ROOT/lib/common.sh")
 if [[ "$sec" != "/home/box/.config/box-access/secrets.env" ]]; then
   echo "FAIL BOX_ACCESS_SECRETS default was $sec"
+  exit 1
+fi
+access=$(env -u BOX_ACCESS_UP bash -c 'source "$1"; printf %s "$BOX_ACCESS_UP"' _ "$ROOT/lib/common.sh")
+expect="$(dirname "$ROOT")/box-access/up.sh"
+if [[ "$access" != "$expect" ]]; then
+  echo "FAIL BOX_ACCESS_UP default was $access, want sibling $expect"
   exit 1
 fi
 user=$(GH_EXPECTED_USER=custom-user bash -c 'source "$1"; printf %s "$GH_EXPECTED_USER"' _ "$ROOT/lib/common.sh")

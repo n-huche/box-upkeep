@@ -4,7 +4,7 @@
 # java/javac/mvn/gh stubs stay on PATH so a missing host JDK, Maven, or gh is not installed here.
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+ROOT=$(realpath "$(dirname "$0")/..")
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
