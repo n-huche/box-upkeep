@@ -1,5 +1,5 @@
 # Shared paths and flags for ./up.sh, java/install-jdk.sh,
-# java/install-maven.sh, and gh/install-gh.sh.
+# java/install-maven.sh, gh/install-gh.sh, and docker/ensure-dockerd.sh.
 # AOS paths, config, and flags live in aos/lib/common.sh.
 # Does not implement the gate. That stays in box-access.
 
@@ -45,6 +45,10 @@ box_upkeep_set_paths() {
     GH_INSTALL="$REPO/gh/install-gh.sh"
   fi
   : "${GH_EXPECTED_USER:=n-huche}"
+  if [[ -z "${DOCKERD_ENSURE:-}" ]]; then
+    DOCKERD_ENSURE="$REPO/docker/ensure-dockerd.sh"
+  fi
+  : "${DOCKER_PACKAGE:=docker.io}"
   if [[ -z "${GH_CONFIG_DIR:-}" ]]; then
     GH_CONFIG_DIR="${HOME_BOX}/.config/gh"
   fi
@@ -55,6 +59,7 @@ box_upkeep_set_paths() {
   export JDK_INSTALL JDK_PACKAGE
   export MAVEN_INSTALL MAVEN_PACKAGE
   export GH_INSTALL GH_EXPECTED_USER GH_CONFIG_DIR BOX_ACCESS_SECRETS
+  export DOCKERD_ENSURE DOCKER_PACKAGE
 }
 
 # aos/config/aos.env may set BOX_ACCESS_UP when it is not already exported.
@@ -283,29 +288,33 @@ Cold start: run ../box-access/up.sh, then ./aos/aos-up.sh. If java or javac
 does not run, install a JDK afterward (JDK_PACKAGE, default default-jdk).
 If mvn -v does not run, install Maven after the JDK (MAVEN_PACKAGE, default
 maven). If gh --version does not run, install GitHub CLI after Maven from
-the official apt repository. This repo does not implement the gate. The
-gate stays in that orchestrator.
+the official apt repository. docker/ensure-dockerd.sh then installs
+docker.io (DOCKER_PACKAGE) and docker-cli when dockerd or docker is missing,
+starts dockerd if it is down, and starts the dockerd keep-alive loop.
+This repo does not implement the gate. The gate stays in that orchestrator.
 
   ../box-access/up.sh    the gate (packages, identity, keep-alive live there)
   ./aos/aos-up.sh        timezone, cronie, AOS clone, calendar, cron/AOS loops
   java/install-jdk.sh    JDK when java or javac does not run (after both sides)
   java/install-maven.sh  Maven when mvn -v does not run (after the JDK)
   gh/install-gh.sh       gh when gh --version does not run (after Maven)
+  docker/ensure-dockerd.sh  dockerd after GitHub CLI (install, start, watchdog)
 
 Failure policy: the gate and AOS both run. The JDK step runs after them
 when java or javac is missing, including with --install-only, --access-only,
 and --aos-only. The Maven step runs after the JDK on those same flags.
-The GitHub CLI step runs after Maven on those same flags. A failing side
-is reported and the others still run. The exit status is the first non-zero
-status (access, then aos, then jdk, then maven, then gh). A missing
+The GitHub CLI step runs after Maven on those same flags. The Docker step
+runs after GitHub CLI on those same flags. A failing side is reported and
+the others still run. The exit status is the first non-zero status
+(access, then aos, then jdk, then maven, then gh, then docker). A missing
 github.com login, a missing GH_TOKEN, a failed token login, or an
 unexpected account is a warning and does not change the exit status.
   --stop-on-error  if box-access/up.sh fails, do not run aos/aos-up.sh
-                   (the JDK, Maven, and GitHub CLI steps are not reached either)
-  --access-only    box-access/up.sh only; a missing JDK, Maven, or gh is still installed
-  --aos-only       AOS only; a missing JDK, Maven, or gh is still installed
-  --install-only   forwarded to both orchestrators; a missing JDK, Maven, or gh is still installed
-  --no-watchdogs   forwarded to both orchestrators
+                   (the JDK, Maven, GitHub CLI, and Docker steps are not reached either)
+  --access-only    box-access/up.sh only; a missing JDK, Maven, or gh is still installed; dockerd still starts
+  --aos-only       AOS only; a missing JDK, Maven, or gh is still installed; dockerd still starts
+  --install-only   forwarded to both orchestrators; a missing JDK, Maven, or gh is still installed; dockerd still starts
+  --no-watchdogs   forwarded to both orchestrators; dockerd still starts once, without its keep-alive loop
   --skip-clone     aos/aos-up.sh only (not forwarded to box-access)
   --help           show this help
 
@@ -320,6 +329,8 @@ unexpected account is a warning and does not change the exit status.
   GH_CONFIG_DIR      persisted gh config (default: /home/box/.config/gh)
   BOX_ACCESS_SECRETS secrets file; only a GH_TOKEN line is read
                      (default: /home/box/.config/box-access/secrets.env)
+  DOCKERD_ENSURE     dockerd script (default: ./docker/ensure-dockerd.sh)
+  DOCKER_PACKAGE     apt package for dockerd (default: docker.io); docker-cli is always installed with it
 EOF
 }
 

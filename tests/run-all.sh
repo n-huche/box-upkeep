@@ -9,6 +9,9 @@ bash -n aos/aos-up.sh
 bash -n java/install-jdk.sh
 bash -n java/install-maven.sh
 bash -n gh/install-gh.sh
+bash -n docker/ensure-dockerd.sh
+bash -n docker/dockerd-watchdog.sh
+bash -n docker/lib.sh
 bash -n lib/common.sh
 bash -n aos/lib/common.sh
 for step in aos/steps/*.sh; do

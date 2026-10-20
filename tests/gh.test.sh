@@ -822,7 +822,12 @@ cat > "$TMP/gh-install.sh" << 'EOF'
 printf 'invoked %s\n' "$*" >> "$GH_INSTALL_LOG"
 exit "${GH_RC:-0}"
 EOF
-chmod +x "$TMP/access-up.sh" "$TMP/aos-up.sh" "$TMP/gh-install.sh"
+cat > "$TMP/dockerd-ensure.sh" << 'EOF'
+#!/bin/bash
+printf '%s\n' 'dockerd: present'
+exit 0
+EOF
+chmod +x "$TMP/access-up.sh" "$TMP/aos-up.sh" "$TMP/gh-install.sh" "$TMP/dockerd-ensure.sh"
 
 ACCESS_RC=0
 AOS_RC=0
@@ -839,6 +844,7 @@ run_up() {
     GH_LOG="$GH_LOG" GH_ENV_LOG="$GH_ENV_LOG" GH_STDIN="$GH_STDIN" GH_STATE="$GH_STATE" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     GH_INSTALL="${GH_INSTALL_OVERRIDE:-$TMP/gh-install.sh}" \
+    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" GH_INSTALL_LOG="$GH_INSTALL_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
 }
@@ -1005,7 +1011,7 @@ if ! printf '%s\n' "$out" | grep -q 'ERROR: gh install failed status=4'; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=4'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=4 docker=0'; then
   echo "FAIL gh failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -1089,7 +1095,7 @@ if ! printf '%s\n' "$out" | grep -q 'gh install entry not executable'; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=127'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=127 docker=0'; then
   echo "FAIL missing gh script summary missing"
   printf '%s\n' "$out"
   exit 1

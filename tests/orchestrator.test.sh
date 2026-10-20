@@ -81,7 +81,7 @@ echo "ok sourcing steps defines functions and does not run them"
 
 if grep -R -n -E 'systemctl|\.service' \
   "$ROOT/aos" "$ROOT/up.sh" "$ROOT/bootstrap.sh" \
-  "$ROOT/lib" "$ROOT/java" >/dev/null; then
+  "$ROOT/lib" "$ROOT/java" "$ROOT/gh" "$ROOT/docker" >/dev/null; then
   echo "FAIL systemd unit reference in scripts"
   exit 1
 fi

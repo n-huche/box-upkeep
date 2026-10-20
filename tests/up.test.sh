@@ -42,10 +42,17 @@ fi
 exit 0
 EOF
 chmod +x "$TMP/bin/java" "$TMP/bin/javac" "$TMP/bin/mvn" "$TMP/bin/gh"
+cat > "$TMP/dockerd-ensure.sh" << 'EOF'
+#!/bin/bash
+printf '%s\n' 'dockerd: present'
+exit 0
+EOF
+chmod +x "$TMP/dockerd-ensure.sh"
 
 run_up() {
   PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" ACCESS_RC=${ACCESS_RC:-0} AOS_RC=${AOS_RC:-0} \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     "$ROOT/up.sh" "$@"
 }
@@ -77,13 +84,19 @@ if ! printf '%s\n' "$out" | grep -qx 'gh: present'; then
   printf '%s\n' "$out"
   exit 1
 fi
+if ! printf '%s\n' "$out" | grep -qx 'dockerd: present'; then
+  echo "FAIL success path did not report a present dockerd"
+  printf '%s\n' "$out"
+  exit 1
+fi
 access_line=$(printf '%s\n' "$out" | grep -n '^access:' | head -n1 | cut -d: -f1)
 aos_line=$(printf '%s\n' "$out" | grep -n '^aos:' | head -n1 | cut -d: -f1)
 jdk_line=$(printf '%s\n' "$out" | grep -n '^jdk:' | head -n1 | cut -d: -f1)
 maven_line=$(printf '%s\n' "$out" | grep -n '^maven:' | head -n1 | cut -d: -f1)
 gh_line=$(printf '%s\n' "$out" | grep -n '^gh:' | head -n1 | cut -d: -f1)
-if (( access_line >= aos_line || aos_line >= jdk_line || jdk_line >= maven_line || maven_line >= gh_line )); then
-  echo "FAIL gate, aos, jdk, maven, and gh did not run in that order"
+docker_line=$(printf '%s\n' "$out" | grep -n '^dockerd:' | head -n1 | cut -d: -f1)
+if (( access_line >= aos_line || aos_line >= jdk_line || jdk_line >= maven_line || maven_line >= gh_line || gh_line >= docker_line )); then
+  echo "FAIL gate, aos, jdk, maven, gh, and dockerd did not run in that order"
   exit 1
 fi
 if [[ "$(cat "$ACCESS_LOG")" != "invoked " || "$(cat "$AOS_LOG")" != "invoked " ]]; then
@@ -122,7 +135,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL aos side did not run after a gate failure"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=0 maven=0 gh=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=0 maven=0 gh=0 docker=0'; then
   echo "FAIL failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -140,7 +153,7 @@ if [[ "$rc" -ne 5 ]]; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=5 jdk=0 maven=0 gh=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=5 jdk=0 maven=0 gh=0 docker=0'; then
   echo "FAIL aos failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -162,7 +175,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL both-failure path skipped aos"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=5 jdk=0 maven=0 gh=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=5 jdk=0 maven=0 gh=0 docker=0'; then
   echo "FAIL both-failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -191,6 +204,11 @@ if printf '%s\n' "$out" | grep -q '^maven:'; then
 fi
 if printf '%s\n' "$out" | grep -q '^gh:'; then
   echo "FAIL stop-on-error still reached gh"
+  printf '%s\n' "$out"
+  exit 1
+fi
+if printf '%s\n' "$out" | grep -q '^dockerd:'; then
+  echo "FAIL stop-on-error still reached dockerd"
   printf '%s\n' "$out"
   exit 1
 fi
@@ -233,6 +251,7 @@ reset_logs
 ACCESS_RC=0 AOS_RC=0
 set +e
 out=$(PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" BOX_ACCESS_UP="$TMP/missing-up.sh" AOS_UP="$TMP/aos-up.sh" \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" 2>&1)
 rc=$?
@@ -246,7 +265,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " ]]; then
   echo "FAIL missing gate skipped aos"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=127 aos=0 jdk=0 maven=0 gh=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=127 aos=0 jdk=0 maven=0 gh=0 docker=0'; then
   echo "FAIL missing gate was not reported"
   printf '%s\n' "$out"
   exit 1
@@ -255,6 +274,7 @@ echo "ok a missing gate is reported and aos still runs"
 
 reset_logs
 PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help >/dev/null
 if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
@@ -262,6 +282,7 @@ if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
   exit 1
 fi
 help=$(PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help)
 if ! printf '%s\n' "$help" | grep -q -- '--stop-on-error'; then
