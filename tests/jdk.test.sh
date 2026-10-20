@@ -316,7 +316,12 @@ cat > "$TMP/jdk-install.sh" << 'EOF'
 printf 'invoked %s\n' "$*" >> "$JDK_LOG"
 exit "${JDK_RC:-0}"
 EOF
-chmod +x "$TMP/access-up.sh" "$TMP/aos-up.sh" "$TMP/jdk-install.sh"
+cat > "$TMP/dockerd-ensure.sh" << 'EOF'
+#!/bin/bash
+printf '%s\n' 'dockerd: present'
+exit 0
+EOF
+chmod +x "$TMP/access-up.sh" "$TMP/aos-up.sh" "$TMP/jdk-install.sh" "$TMP/dockerd-ensure.sh"
 
 UP_PATH=$empty_bin
 JDK_INSTALL=$TMP/jdk-install.sh
@@ -329,7 +334,7 @@ run_up() {
     HOME_BOX="$TMP/home" \
     ACCESS_RC="$ACCESS_RC" AOS_RC="$AOS_RC" JDK_RC="$JDK_RC" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    JDK_INSTALL="$JDK_INSTALL" \
+    JDK_INSTALL="$JDK_INSTALL" DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" JDK_LOG="$JDK_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
 }
@@ -445,7 +450,7 @@ if ! printf '%s\n' "$out" | grep -q 'ERROR: jdk install failed status=9'; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=9 maven=0 gh=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=9 maven=0 gh=0 docker=0'; then
   echo "FAIL jdk failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -468,7 +473,7 @@ if [[ "$(cat "$AOS_LOG")" != "invoked " || "$(cat "$JDK_LOG")" != "invoked " ]];
   echo "FAIL access failure skipped aos or jdk"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=9 maven=0 gh=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=3 aos=0 jdk=9 maven=0 gh=0 docker=0'; then
   echo "FAIL combined failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -516,7 +521,7 @@ if ! printf '%s\n' "$out" | grep -q 'jdk install entry not executable'; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=127 maven=0 gh=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=127 maven=0 gh=0 docker=0'; then
   echo "FAIL missing jdk script summary missing"
   printf '%s\n' "$out"
   exit 1

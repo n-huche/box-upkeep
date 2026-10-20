@@ -60,7 +60,8 @@ if [[ -n "$example" ]]; then
   exit 1
 fi
 for rel in up.sh lib/common.sh aos/units/aos-watchdog.sh aos/units/cron-watchdog.sh \
-  aos/steps/04-calendar.sh aos/steps/05-watchdogs.sh aos/lib/proc.sh; do
+  aos/steps/04-calendar.sh aos/steps/05-watchdogs.sh aos/lib/proc.sh \
+  docker/ensure-dockerd.sh docker/dockerd-watchdog.sh docker/lib.sh; do
   if ! grep -q 'realpath' "$ROOT/$rel"; then
     echo "FAIL $rel does not derive a path with realpath"
     exit 1

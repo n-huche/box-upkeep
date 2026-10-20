@@ -107,10 +107,16 @@ cat > "$TMP/aos-up.sh" << 'EOF'
 #!/bin/bash
 exit 0
 EOF
+cat > "$TMP/dockerd-ensure.sh" << 'EOF'
+#!/bin/bash
+printf '%s\n' 'dockerd: present'
+exit 0
+EOF
 chmod +x "$TMP/bin/java" "$TMP/bin/javac" "$TMP/bin/mvn" "$TMP/bin/gh" \
-  "$TMP/access-up.sh" "$TMP/aos-up.sh"
+  "$TMP/access-up.sh" "$TMP/aos-up.sh" "$TMP/dockerd-ensure.sh"
 out=$(PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" \
   BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   "$TMP/via/box-upkeep/up.sh")
 repo_line=$(printf '%s\n' "$out" | awk -F= '$1=="repo"{print $2; exit}')
 [[ "$repo_line" == "$ROOT" ]] || fail "up.sh via symlink printed repo=$repo_line"
