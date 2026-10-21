@@ -10,7 +10,11 @@ _docker_lib_dir=$(dirname "$(/usr/bin/realpath "${BASH_SOURCE[0]}")")
 source "$_docker_lib_dir/../aos/lib/proc.sh"
 
 DOCKER_DIR=$_docker_lib_dir
-DOCKER_SOCK=${DOCKER_SOCK:-/var/run/docker.sock}
+# Socket and pidfile live in /run, not /var/run. An image that ships /var/run
+# as a root-only directory hides /var/run/docker.sock from a non-root check;
+# run/ensure-run.sh restores the symlink, and these paths do not depend on it.
+DOCKER_SOCK=${DOCKER_SOCK:-/run/docker.sock}
+DOCKERD_PIDFILE=${DOCKERD_PIDFILE:-/run/docker.pid}
 DOCKER_LOG=${DOCKER_LOG:-$DOCKER_DIR/dockerd.log}
 unset _docker_lib_dir
 
@@ -61,17 +65,32 @@ box_upkeep_docker_bins_present() {
   box_upkeep_docker_cli >/dev/null || return 1
 }
 
-# True when dockerd is running and its socket exists.
+# Pid in DOCKERD_PIDFILE when that process is alive. Read with sudo: dockerd
+# writes the file as root. Empty output when there is no usable pid.
+box_upkeep_dockerd_pidfile_pid() {
+  local pid
+  pid=$(sudo cat "$DOCKERD_PIDFILE" 2>/dev/null | tr -cd '0-9' || true)
+  [[ -n "$pid" && -d "/proc/$pid" ]] || return 1
+  [[ "$(cat "/proc/$pid/comm" 2>/dev/null || true)" == dockerd ]] || return 1
+  printf '%s\n' "$pid"
+}
+
+# True when dockerd is running and its socket exists. The process is the
+# pidfile pid, or any dockerd when the pidfile is absent (a daemon started
+# before --pidfile). The socket is checked through sudo so a root-only
+# parent directory does not hide it.
 box_upkeep_dockerd_running() {
-  pgrep -x dockerd >/dev/null 2>&1 || return 1
-  [[ -S "$DOCKER_SOCK" ]]
+  if ! box_upkeep_dockerd_pidfile_pid >/dev/null; then
+    pgrep -x dockerd >/dev/null 2>&1 || return 1
+  fi
+  sudo test -S "$DOCKER_SOCK"
 }
 
 # Mode 666 so the box user can run docker in this session. Membership in the
 # docker group is not visible until a new login, and this host has no systemd
 # to arrange that. usermod still records the group for a later login.
 box_upkeep_open_docker_socket() {
-  [[ -S "$DOCKER_SOCK" ]] || return 1
+  sudo test -S "$DOCKER_SOCK" || return 1
   sudo chmod 666 "$DOCKER_SOCK" || return 1
   if id box >/dev/null 2>&1 && getent group docker >/dev/null 2>&1; then
     sudo usermod -aG docker box || true
@@ -90,7 +109,8 @@ box_upkeep_start_dockerd() {
   log=${DOCKER_LOG:-$DOCKER_DIR/dockerd.log}
   sudo mkdir -p /var/lib/docker || return 1
   echo "dockerd: starting $bin"
-  sudo setsid "$bin" --host="unix://${DOCKER_SOCK}" >>"$log" 2>&1 &
+  sudo mkdir -p -- "$(dirname -- "$DOCKER_SOCK")" "$(dirname -- "$DOCKERD_PIDFILE")" || return 1
+  sudo setsid "$bin" --host="unix://${DOCKER_SOCK}" --pidfile="$DOCKERD_PIDFILE" >>"$log" 2>&1 &
   for ((i = 0; i < 20; i++)); do
     if box_upkeep_dockerd_running; then
       box_upkeep_open_docker_socket || return 1

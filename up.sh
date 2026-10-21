@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Cold start: execute box-access/up.sh, then aos/aos-up.sh.
+# Cold start: run/ensure-run.sh first (/var/run -> /run symlink),
+# then execute box-access/up.sh, then aos/aos-up.sh. RUN_ENSURE overrides the
+# first entry; a failure there is reported, counts last in the exit status,
+# and does not stop the other sides.
 # AOS_UP overrides that entry.
 # When java or javac does not run, java/install-jdk.sh runs after both.
 # When mvn -v does not run, java/install-maven.sh runs after the JDK.
@@ -47,6 +50,23 @@ jdk_rc=0
 maven_rc=0
 gh_rc=0
 docker_rc=0
+run_rc=0
+
+# Runtime directories before the gate: its daemons and clients use /run.
+# Runs under every flag. A fresh image can ship /var/run as a real directory.
+echo "run: $RUN_ENSURE"
+if [[ ! -x "$RUN_ENSURE" ]]; then
+  echo "ERROR: run entry not executable: $RUN_ENSURE" >&2
+  run_rc=127
+else
+  set +e
+  "$RUN_ENSURE"
+  run_rc=$?
+  set -e
+fi
+if [[ "$run_rc" -ne 0 ]]; then
+  echo "ERROR: run ensure failed status=$run_rc" >&2
+fi
 
 if [[ "$AOS_ONLY" -eq 0 ]]; then
   echo "access: $BOX_ACCESS_UP${access_args[*]:+ ${access_args[*]}}"
@@ -173,8 +193,8 @@ if [[ "$docker_rc" -ne 0 ]]; then
   echo "ERROR: dockerd ensure failed status=$docker_rc" >&2
 fi
 
-if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 || "$gh_rc" -ne 0 || "$docker_rc" -ne 0 ]]; then
-  echo "up: failed access=$access_rc aos=$aos_rc jdk=$jdk_rc maven=$maven_rc gh=$gh_rc docker=$docker_rc" >&2
+if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 || "$gh_rc" -ne 0 || "$docker_rc" -ne 0 || "$run_rc" -ne 0 ]]; then
+  echo "up: failed access=$access_rc aos=$aos_rc jdk=$jdk_rc maven=$maven_rc gh=$gh_rc docker=$docker_rc run=$run_rc" >&2
   if [[ "$access_rc" -ne 0 ]]; then
     exit "$access_rc"
   fi
@@ -190,7 +210,10 @@ if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -n
   if [[ "$gh_rc" -ne 0 ]]; then
     exit "$gh_rc"
   fi
-  exit "$docker_rc"
+  if [[ "$docker_rc" -ne 0 ]]; then
+    exit "$docker_rc"
+  fi
+  exit "$run_rc"
 fi
 
 echo "up: ok"

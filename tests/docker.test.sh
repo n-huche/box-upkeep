@@ -65,7 +65,7 @@ EOF
 chmod +x "$STUB"
 cat > "$BIN/pgrep" << 'EOF'
 #!/bin/bash
-if [[ "${1:-}" == "-x" && "${2:-}" == "dockerd" && -f "$DOCKERD_PIDFILE" ]]; then
+if [[ "${1:-}" == "-x" && "${2:-}" == "dockerd" && -f "${PGREP_DOCKERD_MARKER:-$DOCKERD_PIDFILE}" ]]; then
   exit 0
 fi
 exit 1
@@ -73,6 +73,9 @@ EOF
 cat > "$BIN/sudo" << 'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >> "$SUDO_LOG"
+case "${1:-}" in
+  test|cat|mkdir) exec "$@" ;;
+esac
 if [[ "$*" == *"apt-get install"* && "${APT_INSTALL_RC:-0}" -ne 0 ]]; then
   exit "$APT_INSTALL_RC"
 fi
@@ -234,6 +237,74 @@ if PATH="/usr/bin:/bin" \
 fi
 echo "ok dockerd is found outside PATH"
 
+paths=$(env -u DOCKER_SOCK -u DOCKERD_PIDFILE bash -c 'source "$1"; printf "%s %s" "$DOCKER_SOCK" "$DOCKERD_PIDFILE"' _ "$ROOT/docker/lib.sh")
+if [[ "$paths" != "/run/docker.sock /run/docker.pid" ]]; then
+  echo "FAIL default socket and pidfile are not in /run: $paths"
+  exit 1
+fi
+if grep -n '/var/run' "$ROOT/docker/lib.sh" | grep -v '^[0-9]*:#' >/dev/null; then
+  echo "FAIL docker/lib.sh still uses /var/run outside comments"
+  exit 1
+fi
+echo "ok dockerd socket and pidfile default to /run"
+
+reset_docker
+cp "$STUB" "$BIN/dockerd"
+cp "$STUB" "$BIN/docker"
+NO_WATCHDOGS=1
+out=$(run_ensure)
+if ! grep -qF -- "--host=unix://${DOCKER_SOCK} --pidfile=${DOCKERD_PIDFILE}" "$SUDO_LOG"; then
+  echo "FAIL dockerd was not started with an explicit socket and pidfile"
+  cat "$SUDO_LOG"
+  exit 1
+fi
+if ! grep -qx "test -S ${DOCKER_SOCK}" "$SUDO_LOG"; then
+  echo "FAIL the socket check did not go through sudo"
+  cat "$SUDO_LOG"
+  exit 1
+fi
+echo "ok dockerd starts with --host and --pidfile and is checked through sudo"
+
+# The pidfile identifies dockerd even when pgrep does not see it (the case
+# where /var/run hid the socket from a non-root check).
+reset_docker
+mkdir -p "$TMP/fakeproc"
+cp "$(command -v sleep)" "$TMP/fakeproc/dockerd"
+"$TMP/fakeproc/dockerd" 60 &
+fake_pid=$!
+pidfile_only=$TMP/real.pid
+printf '%s\n' "$fake_pid" > "$pidfile_only"
+make_socket
+if ! PATH="$BIN:/usr/bin:/bin" DOCKERD_PIDFILE="$pidfile_only" PGREP_DOCKERD_MARKER="$TMP/no-dockerd" \
+  /bin/bash -c 'source "$1"; box_upkeep_dockerd_running' _ "$ROOT/docker/lib.sh"; then
+  kill "$fake_pid" 2>/dev/null || true
+  echo "FAIL a live dockerd pid in the pidfile was reported down"
+  exit 1
+fi
+rm -f "$DOCKER_SOCK"
+if PATH="$BIN:/usr/bin:/bin" DOCKERD_PIDFILE="$pidfile_only" PGREP_DOCKERD_MARKER="$TMP/no-dockerd" \
+  /bin/bash -c 'source "$1"; box_upkeep_dockerd_running' _ "$ROOT/docker/lib.sh"; then
+  kill "$fake_pid" 2>/dev/null || true
+  echo "FAIL dockerd without its socket was reported up"
+  exit 1
+fi
+kill "$fake_pid" 2>/dev/null || true
+wait "$fake_pid" 2>/dev/null || true
+make_socket
+if PATH="$BIN:/usr/bin:/bin" DOCKERD_PIDFILE="$pidfile_only" PGREP_DOCKERD_MARKER="$TMP/no-dockerd" \
+  /bin/bash -c 'source "$1"; box_upkeep_dockerd_running' _ "$ROOT/docker/lib.sh"; then
+  echo "FAIL a dead pid in the pidfile was reported up"
+  exit 1
+fi
+printf '%s\n' "$$" > "$pidfile_only"
+if PATH="$BIN:/usr/bin:/bin" DOCKERD_PIDFILE="$pidfile_only" PGREP_DOCKERD_MARKER="$TMP/no-dockerd" \
+  /bin/bash -c 'source "$1"; box_upkeep_dockerd_running' _ "$ROOT/docker/lib.sh"; then
+  echo "FAIL a pidfile naming a process that is not dockerd was accepted"
+  exit 1
+fi
+rm -f "$pidfile_only" "$DOCKER_SOCK"
+echo "ok the dockerd check uses the /run pidfile and the socket"
+
 reset_docker
 cp "$STUB" "$BIN/dockerd"
 cp "$STUB" "$BIN/docker"
@@ -310,6 +381,7 @@ run_up() {
     ACCESS_RC="$ACCESS_RC" AOS_RC="$AOS_RC" DOCKER_RC="$DOCKER_RC" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     DOCKERD_ENSURE="${DOCKERD_ENSURE:-$TMP/dockerd-ensure.sh}" DOCKER_STUB_LOG="$DOCKER_STUB_LOG" \
+    RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
 }
@@ -357,7 +429,7 @@ if [[ "$rc" -ne 8 ]]; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=0 docker=8'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=0 docker=8 run=0'; then
   echo "FAIL dockerd failure summary missing"
   printf '%s\n' "$out"
   exit 1

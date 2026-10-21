@@ -131,6 +131,11 @@ need "$ROOT/docker/ensure-dockerd.sh" "apt-get install"
 need "$ROOT/docker/ensure-dockerd.sh" "box_upkeep_dockerd_running"
 need "$ROOT/docker/dockerd-watchdog.sh" "flock -n 9"
 need "$ROOT/docker/lib.sh" "chmod 666"
+need "$readme" "run/ensure-run.sh"
+need "$readme" "RUN_ENSURE"
+need "$readme" "/var/run.pre-symlink-"
+need "$entry" "RUN_ENSURE"
+need "$ROOT/docker/lib.sh" "--pidfile"
 
 if grep -q 'tailscale up' "$entry" || grep -q 'tailscale up' "$aos"; then
   echo "FAIL orchestrators must not run tailscale up"
