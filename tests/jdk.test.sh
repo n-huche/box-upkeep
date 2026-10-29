@@ -334,7 +334,7 @@ run_up() {
     HOME_BOX="$TMP/home" \
     ACCESS_RC="$ACCESS_RC" AOS_RC="$AOS_RC" JDK_RC="$JDK_RC" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    JDK_INSTALL="$JDK_INSTALL" DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+    JDK_INSTALL="$JDK_INSTALL" TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" JDK_LOG="$JDK_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
 }

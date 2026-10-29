@@ -52,7 +52,7 @@ chmod +x "$TMP/dockerd-ensure.sh"
 run_up() {
   PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" ACCESS_RC=${ACCESS_RC:-0} AOS_RC=${AOS_RC:-0} \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     "$ROOT/up.sh" "$@"
 }
@@ -251,7 +251,7 @@ reset_logs
 ACCESS_RC=0 AOS_RC=0
 set +e
 out=$(PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" BOX_ACCESS_UP="$TMP/missing-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" 2>&1)
 rc=$?
@@ -274,7 +274,7 @@ echo "ok a missing gate is reported and aos still runs"
 
 reset_logs
 PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help >/dev/null
 if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
@@ -282,7 +282,7 @@ if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
   exit 1
 fi
 help=$(PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help)
 if ! printf '%s\n' "$help" | grep -q -- '--stop-on-error'; then
@@ -290,3 +290,33 @@ if ! printf '%s\n' "$help" | grep -q -- '--stop-on-error'; then
   exit 1
 fi
 echo "ok up.sh --help"
+
+# Ticket monitor: called last with "service ensure"; missing or failing only warns.
+cat > "$TMP/tickets" << 'EOF2'
+#!/bin/bash
+printf '%s\n' "$*" >> "$TICKETS_LOG"
+exit "${TICKETS_RC:-0}"
+EOF2
+chmod +x "$TMP/tickets"
+TICKETS_LOG=$TMP/tickets.log
+tk_up() {
+  PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" TICKETS_LOG="$TICKETS_LOG" \
+    BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+    ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
+    "$ROOT/up.sh" "$@"
+}
+: > "$TICKETS_LOG"
+out=$(TICKETS_CLI="$TMP/tickets" tk_up 2>&1)
+[[ "$(cat "$TICKETS_LOG")" == "service ensure" ]] || { echo "FAIL tickets CLI not called with 'service ensure'"; exit 1; }
+printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL tickets success path not ok"; exit 1; }
+d=$(printf '%s\n' "$out" | grep -n '^dockerd:' | head -n1 | cut -d: -f1)
+t=$(printf '%s\n' "$out" | grep -n '^tickets:' | head -n1 | cut -d: -f1)
+[[ -n "$d" && -n "$t" && "$t" -gt "$d" ]] || { echo "FAIL tickets did not run after dockerd"; exit 1; }
+out=$(TICKETS_CLI="$TMP/tickets" TICKETS_RC=3 tk_up 2>&1)
+printf '%s\n' "$out" | grep -q 'WARN: tickets service ensure failed status=3' || { echo "FAIL tickets failure not warned"; exit 1; }
+printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL tickets failure changed exit status"; exit 1; }
+out=$(TICKETS_CLI="$TMP/no-such-tickets" tk_up 2>&1)
+printf '%s\n' "$out" | grep -q 'WARN: tickets CLI not executable' || { echo "FAIL missing tickets CLI not warned"; exit 1; }
+printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL missing tickets CLI changed exit status"; exit 1; }
+echo "ok tickets service ensure"
