@@ -1,4 +1,7 @@
 # Declarative Python venvs for ./python/ensure-venvs.sh.
 # Each non-comment line: <venv path> <pkg> [<pkg>...]
+#   or <venv path> -r <requirements file> (absolute path)
+#   or a mix of package tokens plus one -r <file>.
 # Paths under /home/box survive a wipe; /usr and /etc do not.
 /home/box/.config/youtube-coding/venv google-auth-oauthlib google-api-python-client
+/workspace/tickets/.venv -r /workspace/tickets/requirements.txt
