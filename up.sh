@@ -12,6 +12,9 @@
 # docker/ensure-dockerd.sh runs after GitHub CLI: install docker.io and
 # docker-cli when dockerd or docker is missing, start dockerd if it is down,
 # and start docker/dockerd-watchdog.sh unless --no-watchdogs.
+# Last, "$TICKETS_CLI service ensure" starts the ticket monitor supervisor
+# when it is not running (the CLI checks its pid and flock, so a running
+# monitor is left alone). A missing CLI or a failure only warns.
 # Gate logic is not in this repo. BOX_ACCESS_UP overrides the sibling path.
 # A failing side is reported. The other still runs unless --stop-on-error,
 # --access-only, or --aos-only. JDK, Maven, GitHub CLI, and Docker failures
@@ -50,6 +53,7 @@ jdk_rc=0
 maven_rc=0
 gh_rc=0
 docker_rc=0
+tickets_rc=0
 run_rc=0
 
 # Runtime directories before the gate: its daemons and clients use /run.
@@ -191,6 +195,20 @@ else
 fi
 if [[ "$docker_rc" -ne 0 ]]; then
   echo "ERROR: dockerd ensure failed status=$docker_rc" >&2
+fi
+
+# Ticket monitor. Not host infra, so it never changes the exit status.
+echo "tickets: $TICKETS_CLI service ensure"
+if [[ ! -x "$TICKETS_CLI" ]]; then
+  echo "WARN: tickets CLI not executable, skipped: $TICKETS_CLI" >&2
+else
+  set +e
+  "$TICKETS_CLI" service ensure
+  tickets_rc=$?
+  set -e
+  if [[ "$tickets_rc" -ne 0 ]]; then
+    echo "WARN: tickets service ensure failed status=$tickets_rc" >&2
+  fi
 fi
 
 if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 || "$gh_rc" -ne 0 || "$docker_rc" -ne 0 || "$run_rc" -ne 0 ]]; then

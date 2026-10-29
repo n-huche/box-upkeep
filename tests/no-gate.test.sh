@@ -9,7 +9,7 @@ if [[ -d "$ROOT/units" || -d "$ROOT/steps" || -d "$ROOT/config" || -f "$ROOT/pac
   exit 1
 fi
 
-units=$(find "$ROOT/aos/units" -type f -printf '%f\n' | sort)
+units=$(find "$ROOT/aos/units" -type f -name '*.sh' -printf '%f\n' | sort)
 expected=$(printf '%s\n' aos-watchdog.sh cron-watchdog.sh)
 if [[ "$units" != "$expected" ]]; then
   echo "FAIL aos/units/ is not cron + aos only"

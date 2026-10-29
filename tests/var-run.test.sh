@@ -179,7 +179,7 @@ chmod +x "$TMP"/tools/* "$TMP/run-ensure.sh" "$TMP/access-up.sh" "$TMP/aos-up.sh
 run_up() {
   PATH="$TMP/tools:$PATH" HOME_BOX="$TMP/home" \
     RUN_ENSURE="$TMP/run-ensure.sh" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
     /bin/bash "$ROOT/up.sh" "$@"
 }
 rm -f "$ORDER"
@@ -198,7 +198,7 @@ printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=0 doc
 [[ "$(tr '\n' ' ' < "$ORDER")" == "run access aos docker " ]] || fail "a run failure stopped the other sides"
 set +e
 out=$(RUN_ENSURE="$TMP/missing.sh" PATH="$TMP/tools:$PATH" HOME_BOX="$TMP/home" \
-  BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   /bin/bash "$ROOT/up.sh" 2>&1)
 rc=$?
 set -e

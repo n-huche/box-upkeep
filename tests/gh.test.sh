@@ -844,7 +844,7 @@ run_up() {
     GH_LOG="$GH_LOG" GH_ENV_LOG="$GH_ENV_LOG" GH_STDIN="$GH_STDIN" GH_STATE="$GH_STATE" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     GH_INSTALL="${GH_INSTALL_OVERRIDE:-$TMP/gh-install.sh}" \
-    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" GH_INSTALL_LOG="$GH_INSTALL_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
 }

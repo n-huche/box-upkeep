@@ -49,6 +49,7 @@ box_upkeep_set_paths() {
     DOCKERD_ENSURE="$REPO/docker/ensure-dockerd.sh"
   fi
   : "${DOCKER_PACKAGE:=docker.io}"
+  : "${TICKETS_CLI:=/workspace/tickets/tickets}"
   if [[ -z "${RUN_ENSURE:-}" ]]; then
     RUN_ENSURE="$REPO/run/ensure-run.sh"
   fi
@@ -62,7 +63,7 @@ box_upkeep_set_paths() {
   export JDK_INSTALL JDK_PACKAGE
   export MAVEN_INSTALL MAVEN_PACKAGE
   export GH_INSTALL GH_EXPECTED_USER GH_CONFIG_DIR BOX_ACCESS_SECRETS
-  export DOCKERD_ENSURE DOCKER_PACKAGE RUN_ENSURE
+  export DOCKERD_ENSURE DOCKER_PACKAGE RUN_ENSURE TICKETS_CLI
 }
 
 # aos/config/aos.env may set BOX_ACCESS_UP when it is not already exported.
@@ -337,6 +338,8 @@ unexpected account is a warning and does not change the exit status.
   DOCKERD_ENSURE     dockerd script (default: ./docker/ensure-dockerd.sh)
   DOCKER_PACKAGE     apt package for dockerd (default: docker.io); docker-cli is always installed with it
   RUN_ENSURE         runtime-directory script (default: ./run/ensure-run.sh)
+  TICKETS_CLI        ticket monitor CLI; runs "service ensure" last
+                     (default: /workspace/tickets/tickets); missing or failing only warns
 EOF
 }
 

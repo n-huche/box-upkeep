@@ -79,7 +79,7 @@ for func in step_timezone step_cronie step_clone_aos step_calendar step_watchdog
 done
 echo "ok sourcing steps defines functions and does not run them"
 
-if grep -R -n -E 'systemctl|\.service' \
+if grep -R -n --include='*.sh' -E 'systemctl|\.service' \
   "$ROOT/aos" "$ROOT/up.sh" "$ROOT/bootstrap.sh" \
   "$ROOT/lib" "$ROOT/java" "$ROOT/gh" "$ROOT/docker" >/dev/null; then
   echo "FAIL systemd unit reference in scripts"

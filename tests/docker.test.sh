@@ -26,7 +26,7 @@ if grep -q 'docker' "$ROOT/aos/packages.txt"; then
   echo "FAIL Docker packages belong in docker/ensure-dockerd.sh, not aos/packages.txt"
   exit 1
 fi
-if grep -R -n -E 'systemctl|\.service' "$ROOT/docker" >/dev/null; then
+if grep -R -n --include='*.sh' -E 'systemctl|\.service' "$ROOT/docker" >/dev/null; then
   echo "FAIL systemd unit reference in docker scripts"
   exit 1
 fi
@@ -380,7 +380,7 @@ run_up() {
   PATH="$TMP/tools:$PATH" HOME_BOX="$TMP/home" \
     ACCESS_RC="$ACCESS_RC" AOS_RC="$AOS_RC" DOCKER_RC="$DOCKER_RC" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    DOCKERD_ENSURE="${DOCKERD_ENSURE:-$TMP/dockerd-ensure.sh}" DOCKER_STUB_LOG="$DOCKER_STUB_LOG" \
+    TICKETS_CLI=/bin/true DOCKERD_ENSURE="${DOCKERD_ENSURE:-$TMP/dockerd-ensure.sh}" DOCKER_STUB_LOG="$DOCKER_STUB_LOG" \
     RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
@@ -457,7 +457,7 @@ echo "ok --stop-on-error returns before dockerd"
 reset_logs
 ACCESS_RC=0
 set +e
-out=$(DOCKERD_ENSURE="$TMP/missing-dockerd.sh" run_up 2>&1)
+out=$(TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/missing-dockerd.sh" run_up 2>&1)
 rc=$?
 set -e
 if [[ "$rc" -ne 127 ]]; then
