@@ -1,6 +1,6 @@
 # Shared paths and flags for ./up.sh, java/install-jdk.sh,
 # java/install-maven.sh, gh/install-gh.sh, docker/ensure-dockerd.sh,
-# and python/ensure-venvs.sh.
+# python/ensure-venvs.sh, and perms/ensure-perms.sh.
 # AOS paths, config, and flags live in aos/lib/common.sh.
 # Does not implement the gate. That stays in box-access.
 
@@ -60,6 +60,12 @@ box_upkeep_set_paths() {
   if [[ -z "${PYTHON_VENVS_LIST:-}" ]]; then
     PYTHON_VENVS_LIST="$REPO/python/venvs.txt"
   fi
+  if [[ -z "${PERMS_ENSURE:-}" ]]; then
+    PERMS_ENSURE="$REPO/perms/ensure-perms.sh"
+  fi
+  if [[ -z "${PERMS_LIST:-}" ]]; then
+    PERMS_LIST="$REPO/perms/perms.txt"
+  fi
   if [[ -z "${GH_CONFIG_DIR:-}" ]]; then
     GH_CONFIG_DIR="${HOME_BOX}/.config/gh"
   fi
@@ -72,6 +78,7 @@ box_upkeep_set_paths() {
   export GH_INSTALL GH_EXPECTED_USER GH_CONFIG_DIR BOX_ACCESS_SECRETS
   export DOCKERD_ENSURE DOCKER_PACKAGE RUN_ENSURE TICKETS_CLI
   export PYTHON_VENVS_ENSURE PYTHON_VENVS_LIST
+  export PERMS_ENSURE PERMS_LIST
 }
 
 # aos/config/aos.env may set BOX_ACCESS_UP when it is not already exported.
@@ -305,6 +312,7 @@ the official apt repository. docker/ensure-dockerd.sh then installs
 docker.io (DOCKER_PACKAGE) and docker-cli when dockerd or docker is missing,
 starts dockerd if it is down, and starts the dockerd keep-alive loop.
 python/ensure-venvs.sh then recreates declared Python venvs when unhealthy.
+perms/ensure-perms.sh then chmods declared private paths when their mode differs.
 This repo does not implement the gate. The gate stays in that orchestrator.
 
   ./run/ensure-run.sh    /var/run -> /run symlink (first, every flag)
@@ -314,24 +322,26 @@ This repo does not implement the gate. The gate stays in that orchestrator.
   java/install-maven.sh  Maven when mvn -v does not run (after the JDK)
   gh/install-gh.sh       gh when gh --version does not run (after Maven)
   docker/ensure-dockerd.sh  dockerd after GitHub CLI (install, start, watchdog)
-  python/ensure-venvs.sh declared Python venvs after dockerd (before tickets)
+  python/ensure-venvs.sh declared Python venvs after dockerd
+  perms/ensure-perms.sh  declared private path modes after python (before tickets)
 
 Failure policy: the gate and AOS both run. The JDK step runs after them
 when java or javac is missing, including with --install-only, --access-only,
 and --aos-only. The Maven step runs after the JDK on those same flags.
 The GitHub CLI step runs after Maven on those same flags. The Docker step
 runs after GitHub CLI on those same flags. The Python venvs step runs after
-Docker on those same flags. A failing side is reported and
+Docker on those same flags. The perms step runs after Python venvs on those
+same flags. A failing side is reported and
 the others still run. The exit status is the first non-zero status
 (access, then aos, then jdk, then maven, then gh, then docker, then python,
-then run). A missing github.com login, a missing GH_TOKEN, a failed token
+then perms, then run). A missing github.com login, a missing GH_TOKEN, a failed token
 login, or an unexpected account is a warning and does not change the exit
 status.
   --stop-on-error  if box-access/up.sh fails, do not run aos/aos-up.sh
-                   (the JDK, Maven, GitHub CLI, Docker, and Python venvs steps are not reached either)
-  --access-only    box-access/up.sh only; a missing JDK, Maven, or gh is still installed; dockerd and Python venvs still run
-  --aos-only       AOS only; a missing JDK, Maven, or gh is still installed; dockerd and Python venvs still run
-  --install-only   forwarded to both orchestrators; a missing JDK, Maven, or gh is still installed; dockerd and Python venvs still run
+                   (the JDK, Maven, GitHub CLI, Docker, Python venvs, and perms steps are not reached either)
+  --access-only    box-access/up.sh only; a missing JDK, Maven, or gh is still installed; dockerd, Python venvs, and perms still run
+  --aos-only       AOS only; a missing JDK, Maven, or gh is still installed; dockerd, Python venvs, and perms still run
+  --install-only   forwarded to both orchestrators; a missing JDK, Maven, or gh is still installed; dockerd, Python venvs, and perms still run
   --no-watchdogs   forwarded to both orchestrators; dockerd still starts once, without its keep-alive loop
   --skip-clone     aos/aos-up.sh only (not forwarded to box-access)
   --help           show this help
@@ -351,6 +361,8 @@ status.
   DOCKER_PACKAGE     apt package for dockerd (default: docker.io); docker-cli is always installed with it
   PYTHON_VENVS_ENSURE  Python venvs script (default: ./python/ensure-venvs.sh)
   PYTHON_VENVS_LIST    declarative venv list (default: ./python/venvs.txt)
+  PERMS_ENSURE       private path modes script (default: ./perms/ensure-perms.sh)
+  PERMS_LIST         declarative mode list (default: ./perms/perms.txt)
   RUN_ENSURE         runtime-directory script (default: ./run/ensure-run.sh)
   TICKETS_CLI        ticket monitor CLI; runs "service ensure" last
                      (default: /workspace/tickets/tickets); missing or failing only warns

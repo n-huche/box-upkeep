@@ -381,7 +381,7 @@ run_up() {
     ACCESS_RC="$ACCESS_RC" AOS_RC="$AOS_RC" DOCKER_RC="$DOCKER_RC" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     TICKETS_CLI=/bin/true DOCKERD_ENSURE="${DOCKERD_ENSURE:-$TMP/dockerd-ensure.sh}" \
-    PYTHON_VENVS_ENSURE=/bin/true DOCKER_STUB_LOG="$DOCKER_STUB_LOG" \
+    PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true DOCKER_STUB_LOG="$DOCKER_STUB_LOG" \
     RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
@@ -430,7 +430,7 @@ if [[ "$rc" -ne 8 ]]; then
   printf '%s\n' "$out"
   exit 1
 fi
-if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=0 docker=8 python=0 run=0'; then
+if ! printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=0 docker=8 python=0 perms=0 run=0'; then
   echo "FAIL dockerd failure summary missing"
   printf '%s\n' "$out"
   exit 1
@@ -459,7 +459,7 @@ reset_logs
 ACCESS_RC=0
 set +e
 out=$(TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/missing-dockerd.sh" \
-  PYTHON_VENVS_ENSURE=/bin/true run_up 2>&1)
+  PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true run_up 2>&1)
 rc=$?
 set -e
 if [[ "$rc" -ne 127 ]]; then
