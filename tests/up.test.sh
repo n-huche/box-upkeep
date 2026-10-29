@@ -52,7 +52,8 @@ chmod +x "$TMP/dockerd-ensure.sh"
 run_up() {
   PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" ACCESS_RC=${ACCESS_RC:-0} AOS_RC=${AOS_RC:-0} \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+    PYTHON_VENVS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     "$ROOT/up.sh" "$@"
 }
@@ -251,7 +252,8 @@ reset_logs
 ACCESS_RC=0 AOS_RC=0
 set +e
 out=$(PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" BOX_ACCESS_UP="$TMP/missing-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  PYTHON_VENVS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" 2>&1)
 rc=$?
@@ -274,7 +276,8 @@ echo "ok a missing gate is reported and aos still runs"
 
 reset_logs
 PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  PYTHON_VENVS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help >/dev/null
 if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
@@ -282,7 +285,8 @@ if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
   exit 1
 fi
 help=$(PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  PYTHON_VENVS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help)
 if ! printf '%s\n' "$help" | grep -q -- '--stop-on-error'; then
@@ -302,7 +306,8 @@ TICKETS_LOG=$TMP/tickets.log
 tk_up() {
   PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" TICKETS_LOG="$TICKETS_LOG" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" PYTHON_VENVS_ENSURE=/bin/true \
+    RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     "$ROOT/up.sh" "$@"
 }

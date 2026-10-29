@@ -180,6 +180,7 @@ run_up() {
   PATH="$TMP/tools:$PATH" HOME_BOX="$TMP/home" \
     RUN_ENSURE="$TMP/run-ensure.sh" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+    PYTHON_VENVS_ENSURE=/bin/true \
     /bin/bash "$ROOT/up.sh" "$@"
 }
 rm -f "$ORDER"
@@ -194,11 +195,12 @@ out=$(RUN_RC=5 run_up 2>&1)
 rc=$?
 set -e
 [[ "$rc" -eq 5 ]] || fail "run step failure status was $rc, want 5"
-printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=0 docker=0 run=5' || fail "run failure summary missing: $out"
+printf '%s\n' "$out" | grep -q 'up: failed access=0 aos=0 jdk=0 maven=0 gh=0 docker=0 python=0 run=5' || fail "run failure summary missing: $out"
 [[ "$(tr '\n' ' ' < "$ORDER")" == "run access aos docker " ]] || fail "a run failure stopped the other sides"
 set +e
 out=$(RUN_ENSURE="$TMP/missing.sh" PATH="$TMP/tools:$PATH" HOME_BOX="$TMP/home" \
-  BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" TICKETS_CLI=/bin/true \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" PYTHON_VENVS_ENSURE=/bin/true \
   /bin/bash "$ROOT/up.sh" 2>&1)
 rc=$?
 set -e

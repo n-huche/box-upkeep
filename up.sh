@@ -12,16 +12,18 @@
 # docker/ensure-dockerd.sh runs after GitHub CLI: install docker.io and
 # docker-cli when dockerd or docker is missing, start dockerd if it is down,
 # and start docker/dockerd-watchdog.sh unless --no-watchdogs.
+# python/ensure-venvs.sh runs after dockerd: recreate declared Python venvs
+# when unhealthy (PYTHON_VENVS_LIST). Healthy venvs are left alone.
 # Last, "$TICKETS_CLI service ensure" starts the ticket monitor supervisor
 # when it is not running (the CLI checks its pid and flock, so a running
 # monitor is left alone). A missing CLI or a failure only warns.
 # Gate logic is not in this repo. BOX_ACCESS_UP overrides the sibling path.
 # A failing side is reported. The other still runs unless --stop-on-error,
-# --access-only, or --aos-only. JDK, Maven, GitHub CLI, and Docker failures
-# are reported the same way: the exit status is the first non-zero of access,
-# aos, jdk, maven, gh, then docker.
-# --stop-on-error returns before the JDK, Maven, GitHub CLI, and Docker
-# steps when the gate fails.
+# --access-only, or --aos-only. JDK, Maven, GitHub CLI, Docker, and Python
+# venv failures are reported the same way: the exit status is the first
+# non-zero of access, aos, jdk, maven, gh, docker, then python.
+# --stop-on-error returns before the JDK, Maven, GitHub CLI, Docker, and
+# Python venvs steps when the gate fails.
 # bootstrap.sh execs this script.
 
 set -euo pipefail
@@ -53,6 +55,7 @@ jdk_rc=0
 maven_rc=0
 gh_rc=0
 docker_rc=0
+python_rc=0
 tickets_rc=0
 run_rc=0
 
@@ -197,6 +200,24 @@ if [[ "$docker_rc" -ne 0 ]]; then
   echo "ERROR: dockerd ensure failed status=$docker_rc" >&2
 fi
 
+# Python venvs follow dockerd. Same flags, including --install-only,
+# --access-only, and --aos-only. A gate failure with --stop-on-error
+# returns above, so this step is not reached. Sibling files next to a
+# venv (secrets, tokens, scripts) are never touched.
+echo "python-venvs: $PYTHON_VENVS_ENSURE"
+if [[ ! -x "$PYTHON_VENVS_ENSURE" ]]; then
+  echo "ERROR: python venvs entry not executable: $PYTHON_VENVS_ENSURE" >&2
+  python_rc=127
+else
+  set +e
+  "$PYTHON_VENVS_ENSURE"
+  python_rc=$?
+  set -e
+fi
+if [[ "$python_rc" -ne 0 ]]; then
+  echo "ERROR: python venvs ensure failed status=$python_rc" >&2
+fi
+
 # Ticket monitor. Not host infra, so it never changes the exit status.
 echo "tickets: $TICKETS_CLI service ensure"
 if [[ ! -x "$TICKETS_CLI" ]]; then
@@ -211,8 +232,8 @@ else
   fi
 fi
 
-if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 || "$gh_rc" -ne 0 || "$docker_rc" -ne 0 || "$run_rc" -ne 0 ]]; then
-  echo "up: failed access=$access_rc aos=$aos_rc jdk=$jdk_rc maven=$maven_rc gh=$gh_rc docker=$docker_rc run=$run_rc" >&2
+if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 || "$gh_rc" -ne 0 || "$docker_rc" -ne 0 || "$python_rc" -ne 0 || "$run_rc" -ne 0 ]]; then
+  echo "up: failed access=$access_rc aos=$aos_rc jdk=$jdk_rc maven=$maven_rc gh=$gh_rc docker=$docker_rc python=$python_rc run=$run_rc" >&2
   if [[ "$access_rc" -ne 0 ]]; then
     exit "$access_rc"
   fi
@@ -230,6 +251,9 @@ if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -n
   fi
   if [[ "$docker_rc" -ne 0 ]]; then
     exit "$docker_rc"
+  fi
+  if [[ "$python_rc" -ne 0 ]]; then
+    exit "$python_rc"
   fi
   exit "$run_rc"
 fi

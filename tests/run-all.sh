@@ -12,6 +12,7 @@ bash -n gh/install-gh.sh
 bash -n docker/ensure-dockerd.sh
 bash -n docker/dockerd-watchdog.sh
 bash -n docker/lib.sh
+bash -n python/ensure-venvs.sh
 bash -n run/ensure-run.sh
 bash -n run/lib.sh
 bash -n lib/common.sh
