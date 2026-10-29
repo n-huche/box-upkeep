@@ -1,0 +1,10 @@
+# Declared private path modes for ./perms/ensure-perms.sh.
+# Each non-comment line: <octal mode> <absolute path>
+# These paths live under /home/box, which survives a wipe.
+# Contents are never copied into this repo; they hold secrets.
+# The venv under youtube-coding is handled by python/venvs.txt.
+700 /home/box/.config/youtube-coding
+600 /home/box/.config/youtube-coding/client_secret.json
+600 /home/box/.config/youtube-coding/token.json
+600 /home/box/.config/youtube-coding/auth.py
+700 /home/box/.config/youtube-coding/youtube-coding-post

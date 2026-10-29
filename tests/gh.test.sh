@@ -845,7 +845,7 @@ run_up() {
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     GH_INSTALL="${GH_INSTALL_OVERRIDE:-$TMP/gh-install.sh}" \
     TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
-    PYTHON_VENVS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
+    PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" GH_INSTALL_LOG="$GH_INSTALL_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
 }
