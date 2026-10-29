@@ -343,7 +343,8 @@ run_up() {
     ACCESS_RC="$ACCESS_RC" AOS_RC="$AOS_RC" JDK_RC="$JDK_RC" MAVEN_RC="$MAVEN_RC" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
     JDK_INSTALL="$JDK_INSTALL" MAVEN_INSTALL="$MAVEN_INSTALL" \
-    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" RUN_ENSURE=/bin/true \
+    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+    PYTHON_VENVS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" JDK_LOG="$JDK_LOG" MAVEN_LOG="$MAVEN_LOG" \
     /bin/bash "$ROOT/up.sh" "$@"
 }

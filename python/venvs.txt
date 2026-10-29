@@ -1,0 +1,4 @@
+# Declarative Python venvs for ./python/ensure-venvs.sh.
+# Each non-comment line: <venv path> <pkg> [<pkg>...]
+# Paths under /home/box survive a wipe; /usr and /etc do not.
+/home/box/.config/youtube-coding/venv google-auth-oauthlib google-api-python-client
