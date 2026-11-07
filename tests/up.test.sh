@@ -52,7 +52,7 @@ chmod +x "$TMP/dockerd-ensure.sh"
 run_up() {
   PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" ACCESS_RC=${ACCESS_RC:-0} AOS_RC=${AOS_RC:-0} \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
     PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     "$ROOT/up.sh" "$@"
@@ -252,7 +252,7 @@ reset_logs
 ACCESS_RC=0 AOS_RC=0
 set +e
 out=$(PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" BOX_ACCESS_UP="$TMP/missing-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" 2>&1)
@@ -276,7 +276,7 @@ echo "ok a missing gate is reported and aos still runs"
 
 reset_logs
 PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help >/dev/null
@@ -285,7 +285,7 @@ if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
   exit 1
 fi
 help=$(PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help)
@@ -295,33 +295,61 @@ if ! printf '%s\n' "$help" | grep -q -- '--stop-on-error'; then
 fi
 echo "ok up.sh --help"
 
-# Ticket monitor: called last with "service ensure"; missing or failing only warns.
+# Tickets is not a cold-start step. A leftover TICKETS_CLI is not run and
+# does not change the exit status. perms stays the last ensure step.
 cat > "$TMP/tickets" << 'EOF2'
 #!/bin/bash
-printf '%s\n' "$*" >> "$TICKETS_LOG"
-exit "${TICKETS_RC:-0}"
+printf '%s\n' "called $*" >> "$TICKETS_LOG"
+exit 3
 EOF2
 chmod +x "$TMP/tickets"
 TICKETS_LOG=$TMP/tickets.log
-tk_up() {
-  PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" TICKETS_LOG="$TICKETS_LOG" \
-    BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" PYTHON_VENVS_ENSURE=/bin/true \
-    PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
-    ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
-    "$ROOT/up.sh" "$@"
-}
 : > "$TICKETS_LOG"
-out=$(TICKETS_CLI="$TMP/tickets" tk_up 2>&1)
-[[ "$(cat "$TICKETS_LOG")" == "service ensure" ]] || { echo "FAIL tickets CLI not called with 'service ensure'"; exit 1; }
-printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL tickets success path not ok"; exit 1; }
-d=$(printf '%s\n' "$out" | grep -n '^dockerd:' | head -n1 | cut -d: -f1)
-t=$(printf '%s\n' "$out" | grep -n '^tickets:' | head -n1 | cut -d: -f1)
-[[ -n "$d" && -n "$t" && "$t" -gt "$d" ]] || { echo "FAIL tickets did not run after dockerd"; exit 1; }
-out=$(TICKETS_CLI="$TMP/tickets" TICKETS_RC=3 tk_up 2>&1)
-printf '%s\n' "$out" | grep -q 'WARN: tickets service ensure failed status=3' || { echo "FAIL tickets failure not warned"; exit 1; }
-printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL tickets failure changed exit status"; exit 1; }
-out=$(TICKETS_CLI="$TMP/no-such-tickets" tk_up 2>&1)
-printf '%s\n' "$out" | grep -q 'WARN: tickets CLI not executable' || { echo "FAIL missing tickets CLI not warned"; exit 1; }
-printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL missing tickets CLI changed exit status"; exit 1; }
-echo "ok tickets service ensure"
+reset_logs
+set +e
+out=$(PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" TICKETS_CLI="$TMP/tickets" TICKETS_LOG="$TICKETS_LOG" \
+  BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+  DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" PYTHON_VENVS_ENSURE=/bin/true \
+  PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
+  ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
+  "$ROOT/up.sh" 2>&1)
+rc=$?
+set -e
+if [[ "$rc" -ne 0 ]]; then
+  echo "FAIL leftover TICKETS_CLI changed the exit status to $rc"
+  printf '%s\n' "$out"
+  exit 1
+fi
+if [[ -s "$TICKETS_LOG" ]]; then
+  echo "FAIL leftover TICKETS_CLI was invoked: $(cat "$TICKETS_LOG")"
+  exit 1
+fi
+if printf '%s\n' "$out" | grep -q '^tickets:'; then
+  echo "FAIL up.sh still prints a tickets step"
+  printf '%s\n' "$out"
+  exit 1
+fi
+if printf '%s\n' "$out" | grep -q 'WARN: tickets'; then
+  echo "FAIL up.sh still warns about tickets"
+  printf '%s\n' "$out"
+  exit 1
+fi
+printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL success path without tickets was not ok"; exit 1; }
+dk=$(printf '%s\n' "$out" | grep -n '^dockerd:' | head -n1 | cut -d: -f1)
+py=$(printf '%s\n' "$out" | grep -n '^python-venvs:' | head -n1 | cut -d: -f1)
+pe=$(printf '%s\n' "$out" | grep -n '^perms:' | head -n1 | cut -d: -f1)
+ok=$(printf '%s\n' "$out" | grep -n '^up: ok$' | head -n1 | cut -d: -f1)
+if [[ -z "$dk" || -z "$py" || -z "$pe" || -z "$ok" ]] || (( dk >= py || py >= pe || pe >= ok )); then
+  echo "FAIL dockerd, python venvs, and perms did not stay in that order"
+  printf '%s\n' "$out"
+  exit 1
+fi
+if printf '%s\n' "$help" | grep -q 'TICKETS_CLI'; then
+  echo "FAIL up.sh --help still documents TICKETS_CLI"
+  exit 1
+fi
+if env -u TICKETS_CLI bash -c 'source "$1"; [[ -n "${TICKETS_CLI:-}" ]]' _ "$ROOT/lib/common.sh"; then
+  echo "FAIL lib/common.sh still defines TICKETS_CLI"
+  exit 1
+fi
+echo "ok tickets is not started and perms stays last"

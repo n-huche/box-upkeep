@@ -15,6 +15,14 @@ need() {
   fi
 }
 
+forbid() {
+  local file=$1 needle=$2
+  if grep -qF -- "$needle" "$file"; then
+    echo "FAIL unexpected [$needle] in ${file#"$ROOT"/}"
+    exit 1
+  fi
+}
+
 need "$readme" "cd /workspace/box-infra/box-upkeep && ./up.sh"
 need "$readme" "/workspace/box-infra/box-access/up.sh"
 need "$readme" "realpath"
@@ -138,10 +146,13 @@ need "$readme" "PYTHON_VENVS_LIST"
 need "$readme" "venv: present"
 need "$readme" "youtube-coding"
 need "$readme" "-r <requirements file>"
-need "$readme" "/workspace/tickets/.venv"
-need "$readme" "/workspace/tickets/requirements.txt"
 need "$ROOT/python/ensure-venvs.sh" "pip install -r"
-need "$ROOT/python/venvs.txt" "/workspace/tickets/.venv"
+forbid "$readme" "/workspace/tickets"
+forbid "$readme" "TICKETS_CLI"
+forbid "$readme" "tickets service ensure"
+forbid "$ROOT/python/venvs.txt" "/workspace/tickets"
+forbid "$entry" "TICKETS_CLI"
+forbid "$ROOT/lib/common.sh" "TICKETS_CLI"
 need "$entry" "python_rc"
 need "$entry" "PYTHON_VENVS_ENSURE"
 need "$ROOT/lib/common.sh" "PYTHON_VENVS_ENSURE"
@@ -166,8 +177,6 @@ need "$ROOT/perms/ensure-perms.sh" "WARN: perms: missing"
 need "$ROOT/perms/perms.txt" "client_secret.json"
 need "$ROOT/perms/perms.txt" "token.json"
 need "$readme" "run/ensure-run.sh"
-need "$readme" "tickets service ensure"
-need "$readme" "TICKETS_CLI"
 need "$readme" "RUN_ENSURE"
 need "$readme" "/var/run.pre-symlink-"
 need "$entry" "RUN_ENSURE"

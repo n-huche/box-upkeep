@@ -380,7 +380,7 @@ run_up() {
   PATH="$TMP/tools:$PATH" HOME_BOX="$TMP/home" \
     ACCESS_RC="$ACCESS_RC" AOS_RC="$AOS_RC" DOCKER_RC="$DOCKER_RC" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    TICKETS_CLI=/bin/true DOCKERD_ENSURE="${DOCKERD_ENSURE:-$TMP/dockerd-ensure.sh}" \
+    DOCKERD_ENSURE="${DOCKERD_ENSURE:-$TMP/dockerd-ensure.sh}" \
     PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true DOCKER_STUB_LOG="$DOCKER_STUB_LOG" \
     RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
@@ -458,7 +458,7 @@ echo "ok --stop-on-error returns before dockerd"
 reset_logs
 ACCESS_RC=0
 set +e
-out=$(TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/missing-dockerd.sh" \
+out=$(DOCKERD_ENSURE="$TMP/missing-dockerd.sh" \
   PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true run_up 2>&1)
 rc=$?
 set -e
