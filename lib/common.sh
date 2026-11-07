@@ -50,7 +50,6 @@ box_upkeep_set_paths() {
     DOCKERD_ENSURE="$REPO/docker/ensure-dockerd.sh"
   fi
   : "${DOCKER_PACKAGE:=docker.io}"
-  : "${TICKETS_CLI:=/workspace/tickets/tickets}"
   if [[ -z "${RUN_ENSURE:-}" ]]; then
     RUN_ENSURE="$REPO/run/ensure-run.sh"
   fi
@@ -76,7 +75,7 @@ box_upkeep_set_paths() {
   export JDK_INSTALL JDK_PACKAGE
   export MAVEN_INSTALL MAVEN_PACKAGE
   export GH_INSTALL GH_EXPECTED_USER GH_CONFIG_DIR BOX_ACCESS_SECRETS
-  export DOCKERD_ENSURE DOCKER_PACKAGE RUN_ENSURE TICKETS_CLI
+  export DOCKERD_ENSURE DOCKER_PACKAGE RUN_ENSURE
   export PYTHON_VENVS_ENSURE PYTHON_VENVS_LIST
   export PERMS_ENSURE PERMS_LIST
 }
@@ -323,7 +322,7 @@ This repo does not implement the gate. The gate stays in that orchestrator.
   gh/install-gh.sh       gh when gh --version does not run (after Maven)
   docker/ensure-dockerd.sh  dockerd after GitHub CLI (install, start, watchdog)
   python/ensure-venvs.sh declared Python venvs after dockerd
-  perms/ensure-perms.sh  declared private path modes after python (before tickets)
+  perms/ensure-perms.sh  declared private path modes after python
 
 Failure policy: the gate and AOS both run. The JDK step runs after them
 when java or javac is missing, including with --install-only, --access-only,
@@ -364,8 +363,6 @@ status.
   PERMS_ENSURE       private path modes script (default: ./perms/ensure-perms.sh)
   PERMS_LIST         declarative mode list (default: ./perms/perms.txt)
   RUN_ENSURE         runtime-directory script (default: ./run/ensure-run.sh)
-  TICKETS_CLI        ticket monitor CLI; runs "service ensure" last
-                     (default: /workspace/tickets/tickets); missing or failing only warns
 EOF
 }
 

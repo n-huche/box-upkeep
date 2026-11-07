@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # python/ensure-venvs.sh: healthy skip, recreate, sibling preservation, failure,
 # and -r requirements-file lines. Fake python3/pip on PATH. No network.
-# Never touches /home/box or /workspace/tickets.
+# Never touches /home/box. /workspace/tickets is not a declared venv.
 set -euo pipefail
 
 ROOT=$(realpath "$(dirname "$0")/..")
@@ -32,9 +32,8 @@ if ! grep -q 'google-api-python-client' "$ROOT/python/venvs.txt"; then
   echo "FAIL python/venvs.txt missing google-api-python-client"
   exit 1
 fi
-if ! grep -qE '^/workspace/tickets/\.venv[[:space:]]+-r[[:space:]]+/workspace/tickets/requirements\.txt[[:space:]]*$' \
-  "$ROOT/python/venvs.txt"; then
-  echo "FAIL python/venvs.txt missing tickets -r entry"
+if grep -q '/workspace/tickets' "$ROOT/python/venvs.txt"; then
+  echo "FAIL python/venvs.txt still declares a tickets venv"
   exit 1
 fi
 
@@ -585,7 +584,7 @@ if ! grep -qx 'leftover-pkg' "$VENV/.pkgs"; then
 fi
 echo "ok missing requirements file fails without touching the venv"
 
-# Never touched the real home or tickets tree.
+# Never touched the real home tree, or a leftover tickets tree.
 if [[ -e /home/box/.config/youtube-coding/venv/.pkgs ]] && \
    grep -q 'fake-test' /home/box/.config/youtube-coding/venv/.pkgs 2>/dev/null; then
   echo "FAIL test wrote into /home/box"
@@ -597,5 +596,5 @@ if [[ -e /workspace/tickets/.venv ]] && \
   echo "FAIL test wrote into /workspace/tickets"
   exit 1
 fi
-# Stronger: our TMP paths only; tickets list entry is never used as PYTHON_VENVS_LIST.
+# Stronger: our TMP paths only. The default list must not name /workspace/tickets.
 echo "ok python ensure-venvs"

@@ -15,7 +15,7 @@
 # A missing requirements file is an error for that line; the venv is not touched.
 # Parent directory is created mode 700 only when missing.
 # Sibling files in the parent (secrets, tokens, scripts) are never touched.
-# ./up.sh runs this after dockerd and before the tickets step.
+# ./up.sh runs this after dockerd and before the perms step.
 # A non-zero exit is reported there and counts toward the first non-zero status.
 
 set -euo pipefail

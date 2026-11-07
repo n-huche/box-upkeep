@@ -7,7 +7,7 @@
 # Missing paths warn and continue. Symlinks are skipped with a WARN.
 # Never create, copy, move, read, or delete the paths (they hold secrets).
 # Never follow symlinks.
-# ./up.sh runs this after python venvs and before the tickets step.
+# ./up.sh runs this last, after python venvs.
 # Exit non-zero only on a malformed line or a chmod failure.
 
 set -euo pipefail

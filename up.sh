@@ -14,11 +14,9 @@
 # and start docker/dockerd-watchdog.sh unless --no-watchdogs.
 # python/ensure-venvs.sh runs after dockerd: recreate declared Python venvs
 # when unhealthy (PYTHON_VENVS_LIST). Healthy venvs are left alone.
-# perms/ensure-perms.sh runs after python venvs: chmod declared private
-# paths from PERMS_LIST when their mode differs. Missing paths warn only.
-# Last, "$TICKETS_CLI service ensure" starts the ticket monitor supervisor
-# when it is not running (the CLI checks its pid and flock, so a running
-# monitor is left alone). A missing CLI or a failure only warns.
+# perms/ensure-perms.sh runs last, after python venvs: chmod declared
+# private paths from PERMS_LIST when their mode differs. Missing paths
+# warn only.
 # Gate logic is not in this repo. BOX_ACCESS_UP overrides the sibling path.
 # A failing side is reported. The other still runs unless --stop-on-error,
 # --access-only, or --aos-only. JDK, Maven, GitHub CLI, Docker, Python
@@ -60,7 +58,6 @@ gh_rc=0
 docker_rc=0
 python_rc=0
 perms_rc=0
-tickets_rc=0
 run_rc=0
 
 # Runtime directories before the gate: its daemons and clients use /run.
@@ -238,20 +235,6 @@ else
 fi
 if [[ "$perms_rc" -ne 0 ]]; then
   echo "ERROR: perms ensure failed status=$perms_rc" >&2
-fi
-
-# Ticket monitor. Not host infra, so it never changes the exit status.
-echo "tickets: $TICKETS_CLI service ensure"
-if [[ ! -x "$TICKETS_CLI" ]]; then
-  echo "WARN: tickets CLI not executable, skipped: $TICKETS_CLI" >&2
-else
-  set +e
-  "$TICKETS_CLI" service ensure
-  tickets_rc=$?
-  set -e
-  if [[ "$tickets_rc" -ne 0 ]]; then
-    echo "WARN: tickets service ensure failed status=$tickets_rc" >&2
-  fi
 fi
 
 if [[ "$access_rc" -ne 0 || "$aos_rc" -ne 0 || "$jdk_rc" -ne 0 || "$maven_rc" -ne 0 || "$gh_rc" -ne 0 || "$docker_rc" -ne 0 || "$python_rc" -ne 0 || "$perms_rc" -ne 0 || "$run_rc" -ne 0 ]]; then
