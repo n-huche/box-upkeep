@@ -52,7 +52,7 @@ chmod +x "$TMP/dockerd-ensure.sh"
 run_up() {
   PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" ACCESS_RC=${ACCESS_RC:-0} AOS_RC=${AOS_RC:-0} \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+    TICKETS_CLI=/bin/true AE_UP=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
     PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     "$ROOT/up.sh" "$@"
@@ -252,7 +252,7 @@ reset_logs
 ACCESS_RC=0 AOS_RC=0
 set +e
 out=$(PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" BOX_ACCESS_UP="$TMP/missing-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  TICKETS_CLI=/bin/true AE_UP=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" 2>&1)
@@ -276,7 +276,7 @@ echo "ok a missing gate is reported and aos still runs"
 
 reset_logs
 PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  TICKETS_CLI=/bin/true AE_UP=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help >/dev/null
@@ -285,7 +285,7 @@ if [[ -e "$ACCESS_LOG" || -e "$AOS_LOG" ]]; then
   exit 1
 fi
 help=$(PATH="$TMP/bin:$PATH" BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-  TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
+  TICKETS_CLI=/bin/true AE_UP=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" \
   PYTHON_VENVS_ENSURE=/bin/true PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
   ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
   "$ROOT/up.sh" --help)
@@ -295,7 +295,7 @@ if ! printf '%s\n' "$help" | grep -q -- '--stop-on-error'; then
 fi
 echo "ok up.sh --help"
 
-# Ticket monitor: called last with "service ensure"; missing or failing only warns.
+# Ticket monitor: called with "service ensure"; missing or failing only warns.
 cat > "$TMP/tickets" << 'EOF2'
 #!/bin/bash
 printf '%s\n' "$*" >> "$TICKETS_LOG"
@@ -306,7 +306,7 @@ TICKETS_LOG=$TMP/tickets.log
 tk_up() {
   PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" TICKETS_LOG="$TICKETS_LOG" \
     BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
-    DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" PYTHON_VENVS_ENSURE=/bin/true \
+    AE_UP=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" PYTHON_VENVS_ENSURE=/bin/true \
     PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
     ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
     "$ROOT/up.sh" "$@"
@@ -325,3 +325,35 @@ out=$(TICKETS_CLI="$TMP/no-such-tickets" tk_up 2>&1)
 printf '%s\n' "$out" | grep -q 'WARN: tickets CLI not executable' || { echo "FAIL missing tickets CLI not warned"; exit 1; }
 printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL missing tickets CLI changed exit status"; exit 1; }
 echo "ok tickets service ensure"
+
+# Action Engine demo: called last with no args; missing or failing only warns.
+cat > "$TMP/ae-up.sh" << 'EOF2'
+#!/bin/bash
+printf 'invoked %s\n' "$*" >> "$AE_LOG"
+exit "${AE_RC:-0}"
+EOF2
+chmod +x "$TMP/ae-up.sh"
+AE_LOG=$TMP/ae.log
+ae_up() {
+  PATH="$TMP/bin:$PATH" HOME_BOX="$TMP/home" AE_LOG="$AE_LOG" \
+    BOX_ACCESS_UP="$TMP/access-up.sh" AOS_UP="$TMP/aos-up.sh" \
+    TICKETS_CLI=/bin/true DOCKERD_ENSURE="$TMP/dockerd-ensure.sh" PYTHON_VENVS_ENSURE=/bin/true \
+    PERMS_ENSURE=/bin/true RUN_ENSURE=/bin/true \
+    ACCESS_LOG="$ACCESS_LOG" AOS_LOG="$AOS_LOG" \
+    "$ROOT/up.sh" "$@"
+}
+: > "$AE_LOG"
+out=$(AE_UP="$TMP/ae-up.sh" ae_up 2>&1)
+[[ "$(cat "$AE_LOG")" == "invoked " ]] || { echo "FAIL action-engine up not called with no args"; exit 1; }
+printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL action-engine success path not ok"; exit 1; }
+d=$(printf '%s\n' "$out" | grep -n '^dockerd:' | head -n1 | cut -d: -f1)
+t=$(printf '%s\n' "$out" | grep -n '^tickets:' | head -n1 | cut -d: -f1)
+a=$(printf '%s\n' "$out" | grep -n '^action-engine:' | head -n1 | cut -d: -f1)
+[[ -n "$d" && -n "$t" && -n "$a" && "$t" -gt "$d" && "$a" -gt "$t" ]] || { echo "FAIL action-engine did not run after tickets"; exit 1; }
+out=$(AE_UP="$TMP/ae-up.sh" AE_RC=3 ae_up 2>&1)
+printf '%s\n' "$out" | grep -q 'WARN: action-engine up failed status=3' || { echo "FAIL action-engine failure not warned"; exit 1; }
+printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL action-engine failure changed exit status"; exit 1; }
+out=$(AE_UP="$TMP/no-such-ae-up" ae_up 2>&1)
+printf '%s\n' "$out" | grep -q 'WARN: action-engine up not executable' || { echo "FAIL missing action-engine up not warned"; exit 1; }
+printf '%s\n' "$out" | grep -qx 'up: ok' || { echo "FAIL missing action-engine up changed exit status"; exit 1; }
+echo "ok action-engine up"
