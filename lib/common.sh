@@ -51,6 +51,7 @@ box_upkeep_set_paths() {
   fi
   : "${DOCKER_PACKAGE:=docker.io}"
   : "${TICKETS_CLI:=/workspace/tickets/tickets}"
+  : "${AE_UP:=/workspace/deploy/action-engine/bin/up.sh}"
   if [[ -z "${RUN_ENSURE:-}" ]]; then
     RUN_ENSURE="$REPO/run/ensure-run.sh"
   fi
@@ -76,7 +77,7 @@ box_upkeep_set_paths() {
   export JDK_INSTALL JDK_PACKAGE
   export MAVEN_INSTALL MAVEN_PACKAGE
   export GH_INSTALL GH_EXPECTED_USER GH_CONFIG_DIR BOX_ACCESS_SECRETS
-  export DOCKERD_ENSURE DOCKER_PACKAGE RUN_ENSURE TICKETS_CLI
+  export DOCKERD_ENSURE DOCKER_PACKAGE RUN_ENSURE TICKETS_CLI AE_UP
   export PYTHON_VENVS_ENSURE PYTHON_VENVS_LIST
   export PERMS_ENSURE PERMS_LIST
 }
@@ -364,8 +365,10 @@ status.
   PERMS_ENSURE       private path modes script (default: ./perms/ensure-perms.sh)
   PERMS_LIST         declarative mode list (default: ./perms/perms.txt)
   RUN_ENSURE         runtime-directory script (default: ./run/ensure-run.sh)
-  TICKETS_CLI        ticket monitor CLI; runs "service ensure" last
+  TICKETS_CLI        ticket monitor CLI; runs "service ensure" after perms
                      (default: /workspace/tickets/tickets); missing or failing only warns
+  AE_UP              action-engine demo up; runs last after tickets
+                     (default: /workspace/deploy/action-engine/bin/up.sh); missing or failing only warns
 EOF
 }
 

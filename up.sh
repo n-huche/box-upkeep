@@ -16,9 +16,12 @@
 # when unhealthy (PYTHON_VENVS_LIST). Healthy venvs are left alone.
 # perms/ensure-perms.sh runs after python venvs: chmod declared private
 # paths from PERMS_LIST when their mode differs. Missing paths warn only.
-# Last, "$TICKETS_CLI service ensure" starts the ticket monitor supervisor
-# when it is not running (the CLI checks its pid and flock, so a running
-# monitor is left alone). A missing CLI or a failure only warns.
+# After perms, "$TICKETS_CLI service ensure" starts the ticket monitor
+# supervisor when it is not running (the CLI checks its pid and flock, so a
+# running monitor is left alone). A missing CLI or a failure only warns.
+# After the tickets service ensure, run ${AE_UP} if the file exists and is
+# executable. Missing or failing only warns. It never changes the exit
+# status. It is not host infra.
 # Gate logic is not in this repo. BOX_ACCESS_UP overrides the sibling path.
 # A failing side is reported. The other still runs unless --stop-on-error,
 # --access-only, or --aos-only. JDK, Maven, GitHub CLI, Docker, Python
@@ -251,6 +254,20 @@ else
   set -e
   if [[ "$tickets_rc" -ne 0 ]]; then
     echo "WARN: tickets service ensure failed status=$tickets_rc" >&2
+  fi
+fi
+
+# Action Engine demo. Not host infra, so it never changes the exit status.
+echo "action-engine: $AE_UP"
+if [[ ! -x "$AE_UP" ]]; then
+  echo "WARN: action-engine up not executable, skipped: $AE_UP" >&2
+else
+  set +e
+  "$AE_UP"
+  ae_rc=$?
+  set -e
+  if [[ "$ae_rc" -ne 0 ]]; then
+    echo "WARN: action-engine up failed status=$ae_rc" >&2
   fi
 fi
 
